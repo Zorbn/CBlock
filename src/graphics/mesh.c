@@ -38,6 +38,10 @@ struct Mesh mesh_create(float *vertices, uint32_t vertex_count, uint32_t *indice
 }
 
 void mesh_draw(struct Mesh *mesh) {
+    if (mesh->index_count == 0) {
+        return;
+    }
+
     glBindVertexArray(mesh->vao);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ebo);
     glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, 0);

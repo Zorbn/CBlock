@@ -9,8 +9,11 @@ add_executable(
     CBlock
     
     src/main.c
+    src/list.h
+    src/chunk.c src/chunk.h
     src/file.c src/file.h
     src/window.c src/window.h
+    src/graphics/mesher.c src/graphics/mesher.h
     src/graphics/mesh.c src/graphics/mesh.h
     src/graphics/resources.c src/graphics/resources.h
     deps/glad/src/glad.c

@@ -1,5 +1,7 @@
 #include "window.h"
+#include "chunk.h"
 #include "graphics/mesh.h"
+#include "graphics/mesher.h"
 #include "graphics/resources.h"
 
 #include <cglm/cglm.h>
@@ -12,17 +14,17 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-const float vertices[] = {
-    0.5f, 0.5f, 0.0f, /* Color: */ 1.0f, 0.0f, 0.0f, /* Tex coords: */ 1.0f, 1.0f,   // Top right
-    0.5f, -0.5f, 0.0f, /* Color: */ 0.0f, 1.0f, 0.0f, /* Tex coords: */ 1.0f, 0.0f,  // Bottom right
-    -0.5f, -0.5f, 0.0f, /* Color: */ 0.0f, 0.0f, 1.0f, /* Tex coords: */ 0.0f, 0.0f, // Bottom left
-    -0.5f, 0.5f, 0.0f, /* Color: */ 1.0f, 0.0f, 1.0f, /* Tex coords: */ 0.0f, 1.0f,  // Top left
-};
+// const float vertices[] = {
+//     0.5f, 0.5f, 0.0f, /* Color: */ 1.0f, 1.0f, 1.0f, /* Tex coords: */ 1.0f, 1.0f,   // Top right
+//     0.5f, -0.5f, 0.0f, /* Color: */ 1.0f, 1.0f, 1.0f, /* Tex coords: */ 1.0f, 0.0f,  // Bottom right
+//     -0.5f, -0.5f, 0.0f, /* Color: */ 1.0f, 1.0f, 1.0f, /* Tex coords: */ 0.0f, 0.0f, // Bottom left
+//     -0.5f, 0.5f, 0.0f, /* Color: */ 1.0f, 1.0f, 1.0f, /* Tex coords: */ 0.0f, 1.0f,  // Top left
+// };
 
-const uint32_t indices[] = {
-    0, 1, 3, // Triangle 1
-    1, 2, 3, // Triangle 2
-};
+// const uint32_t indices[] = {
+//     0, 1, 3, // Triangle 1
+//     1, 2, 3, // Triangle 2
+// };
 
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
@@ -32,8 +34,13 @@ int main() {
     glEnable(GL_CULL_FACE);
 
     uint32_t program = program_create("shader.vert", "shader.frag");
-    struct Mesh mesh = mesh_create((float *)vertices, 4, (uint32_t *)indices, 6);
+    // struct Mesh mesh = mesh_create((float *)vertices, 4, (uint32_t *)indices, 6);
     uint32_t texture = texture_create("texture.png");
+
+    struct Mesher mesher = mesher_create();
+    struct Chunk chunk = chunk_create();
+    // TODO: Add mesh_destroy().
+    struct Mesh mesh = mesher_mesh_chunk(&mesher, &chunk);
 
     vec3 eye = {0.0f, 0.0f, -10.0f};
     vec3 center = {0.0f, 0.0f, 0.0f};
@@ -68,6 +75,9 @@ int main() {
         glfwSwapBuffers(window.glfw_window);
         glfwPollEvents();
     }
+
+    chunk_destroy(&chunk);
+    mesher_destroy(&mesher);
 
     glDeleteProgram(program);
 
