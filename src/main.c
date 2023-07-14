@@ -1,5 +1,6 @@
 #include "window.h"
 #include "chunk.h"
+#include "camera.h"
 #include "graphics/mesh.h"
 #include "graphics/mesher.h"
 #include "graphics/resources.h"
@@ -13,83 +14,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <inttypes.h>
-
-struct Camera {
-    vec3s position;
-    float rotation_x;
-    float rotation_y;
-};
-
-struct Camera camera_create() {
-    return (struct Camera){
-        .position = {0.0f, 0.0f, 0.0f},
-        .rotation_x = 45.0f,
-        .rotation_y = 45.0f,
-    };
-}
-
-void camera_move(struct Camera *camera, struct Window *window, float delta_time) {
-    if (!window->is_mouse_locked) {
-        return;
-    }
-
-    float forward_direction = 0.0f;
-    float up_direction = 0.0f;
-    float right_direction = 0.0f;
-
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_W) == GLFW_PRESS) {
-        forward_direction -= 1.0f;
-    }
-
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_S) == GLFW_PRESS) {
-        forward_direction += 1.0f;
-    }
-
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-        up_direction -= 1.0f;
-    }
-
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        up_direction += 1.0f;
-    }
-
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_A) == GLFW_PRESS) {
-        right_direction -= 1.0f;
-    }
-
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_D) == GLFW_PRESS) {
-        right_direction += 1.0f;
-    }
-
-    const float camera_move_speed = 10.0f;
-    float current_move_speed = delta_time * camera_move_speed;
-
-    camera->position.x += right_direction * current_move_speed;
-    camera->position.y += up_direction * current_move_speed;
-    camera->position.z += forward_direction * current_move_speed;
-}
-
-void camera_rotate(struct Camera *camera, struct Window *window) {
-    float delta_x, delta_y;
-    window_get_mouse_delta(window, &delta_x, &delta_y);
-
-    const float camera_rotate_speed = 0.1f;
-    camera->rotation_x += delta_y * camera_rotate_speed;
-    camera->rotation_y -= delta_x * camera_rotate_speed;
-    camera->rotation_x = glm_clamp(camera->rotation_x, -89.0f, 89.0f);
-}
-
-mat4s camera_get_view_matrix(struct Camera *camera) {
-    mat4s rotation_matrix_y = glms_rotate_y(glms_mat4_identity(), glm_rad(camera->rotation_y));
-    mat4s rotation_matrix_x = glms_rotate_x(glms_mat4_identity(), glm_rad(camera->rotation_x));
-
-    vec3s view_target = {0.0f, 0.0f, 1.0f};
-    view_target = glms_mat4_mulv3(rotation_matrix_x, view_target, 1.0f);
-    view_target = glms_mat4_mulv3(rotation_matrix_y, view_target, 1.0f);
-    view_target = glms_vec3_add(view_target, camera->position);
-
-    return glms_lookat(camera->position, view_target, GLMS_YUP);
-}
 
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
