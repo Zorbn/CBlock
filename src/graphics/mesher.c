@@ -1,6 +1,6 @@
 #include "mesher.h"
 
-#include <cglm/cglm.h>
+#include <cglm/struct.h>
 
 const vec3 cube_vertices[6][4] = {
     // Forward

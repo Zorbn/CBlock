@@ -14,5 +14,6 @@ struct Mesh {
 
 struct Mesh mesh_create(float *vertices, uint32_t vertex_count, uint32_t *indices, uint32_t index_count);
 void mesh_draw(struct Mesh *mesh);
+void mesh_destroy(struct Mesh *mesh);
 
 #endif

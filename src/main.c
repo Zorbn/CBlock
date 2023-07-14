@@ -4,7 +4,7 @@
 #include "graphics/mesher.h"
 #include "graphics/resources.h"
 
-#include <cglm/cglm.h>
+#include <cglm/struct.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image/stb_image.h>
@@ -14,7 +14,25 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-void move_camera(struct Window *window, float delta_time, vec3 eye) {
+struct Camera {
+    vec3s position;
+    float rotation_x;
+    float rotation_y;
+};
+
+struct Camera camera_create() {
+    return (struct Camera){
+        .position = {0.0f, 0.0f, 0.0f},
+        .rotation_x = 45.0f,
+        .rotation_y = 45.0f,
+    };
+}
+
+void camera_move(struct Camera *camera, struct Window *window, float delta_time) {
+    if (!window->is_mouse_locked) {
+        return;
+    }
+
     float forward_direction = 0.0f;
     float up_direction = 0.0f;
     float right_direction = 0.0f;
@@ -46,9 +64,31 @@ void move_camera(struct Window *window, float delta_time, vec3 eye) {
     const float camera_move_speed = 10.0f;
     float current_move_speed = delta_time * camera_move_speed;
 
-    eye[0] += right_direction * current_move_speed;
-    eye[1] += up_direction * current_move_speed;
-    eye[2] += forward_direction * current_move_speed;
+    camera->position.x += right_direction * current_move_speed;
+    camera->position.y += up_direction * current_move_speed;
+    camera->position.z += forward_direction * current_move_speed;
+}
+
+void camera_rotate(struct Camera *camera, struct Window *window) {
+    float delta_x, delta_y;
+    window_get_mouse_delta(window, &delta_x, &delta_y);
+
+    const float camera_rotate_speed = 0.1f;
+    camera->rotation_x += delta_y * camera_rotate_speed;
+    camera->rotation_y -= delta_x * camera_rotate_speed;
+    camera->rotation_x = glm_clamp(camera->rotation_x, -89.0f, 89.0f);
+}
+
+mat4s camera_get_view_matrix(struct Camera *camera) {
+    mat4s rotation_matrix_y = glms_rotate_y(glms_mat4_identity(), glm_rad(camera->rotation_y));
+    mat4s rotation_matrix_x = glms_rotate_x(glms_mat4_identity(), glm_rad(camera->rotation_x));
+
+    vec3s view_target = {0.0f, 0.0f, 1.0f};
+    view_target = glms_mat4_mulv3(rotation_matrix_x, view_target, 1.0f);
+    view_target = glms_mat4_mulv3(rotation_matrix_y, view_target, 1.0f);
+    view_target = glms_vec3_add(view_target, camera->position);
+
+    return glms_lookat(camera->position, view_target, GLMS_YUP);
 }
 
 int main() {
@@ -59,20 +99,19 @@ int main() {
     glEnable(GL_CULL_FACE);
 
     uint32_t program = program_create("shader.vert", "shader.frag");
-    // struct Mesh mesh = mesh_create((float *)vertices, 4, (uint32_t *)indices, 6);
     uint32_t texture = texture_create("texture.png");
 
     struct Mesher mesher = mesher_create();
     struct Chunk chunk = chunk_create();
-    // TODO: Add mesh_destroy().
     struct Mesh mesh = mesher_mesh_chunk(&mesher, &chunk);
 
-    vec3 eye = {0.0f, 0.0f, 10.0f};
+    struct Camera camera = camera_create();
+
     vec3 center = {0.0f, 0.0f, 0.0f};
     vec3 up = {0.0f, 1.0f, 0.0f};
 
-    mat4 view_matrix;
-    mat4 projection_matrix;
+    mat4s view_matrix;
+    mat4s projection_matrix;
 
     int32_t view_matrix_location = glGetUniformLocation(program, "view_matrix");
     int32_t projection_matrix_location = glGetUniformLocation(program, "projection_matrix");
@@ -80,22 +119,20 @@ int main() {
     double last_time = glfwGetTime();
 
     while (!glfwWindowShouldClose(window.glfw_window)) {
-        if (glfwGetKey(window.glfw_window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-            glfwSetWindowShouldClose(window.glfw_window, true);
-        }
+        window_update_mouse_lock(&window);
 
         double current_time = glfwGetTime();
         float delta_time = (float)(current_time - last_time);
+        printf("fps: %f\n", 1.0f / delta_time);
         last_time = current_time;
 
-        move_camera(&window, delta_time, eye);
-        glm_vec3_copy(eye, center);
-        center[2] -= 1.0f;
-        glm_lookat(eye, center, up, view_matrix);
+        camera_move(&camera, &window, delta_time);
+        camera_rotate(&camera, &window);
+        view_matrix = camera_get_view_matrix(&camera);
 
         if (window.was_resized) {
             glViewport(0, 0, window.width, window.height);
-            glm_perspective(glm_rad(45.0), window.width / (float)window.height, 0.1f, 100.0f, projection_matrix);
+            projection_matrix = glms_perspective(glm_rad(90.0), window.width / (float)window.height, 0.1f, 100.0f);
             window.was_resized = false;
         }
 
@@ -111,6 +148,7 @@ int main() {
         glfwPollEvents();
     }
 
+    mesh_destroy(&mesh);
     chunk_destroy(&chunk);
     mesher_destroy(&mesher);
 

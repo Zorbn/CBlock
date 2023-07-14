@@ -46,3 +46,9 @@ void mesh_draw(struct Mesh *mesh) {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ebo);
     glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_INT, 0);
 }
+
+void mesh_destroy(struct Mesh *mesh) {
+    glDeleteBuffers(1, &mesh->vbo);
+    glDeleteBuffers(1, &mesh->ebo);
+    glDeleteVertexArrays(1, &mesh->vao);
+}
