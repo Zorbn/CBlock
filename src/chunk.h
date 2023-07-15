@@ -2,9 +2,11 @@
 #define CHUNK_H
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 extern const size_t chunk_size;
 extern const size_t chunk_height;
+extern const size_t chunk_length;
 
 // TODO: Keep track of heighest and lowest? block at each XZ position,
 // use that info to reduce the amount of meshing required. (Helpful in the
@@ -16,6 +18,7 @@ struct Chunk {
     uint32_t z;
     int32_t *heightmap_min;
     int32_t *heightmap_max;
+    bool is_dirty;
 };
 
 struct Chunk chunk_create(int32_t x, int32_t z);

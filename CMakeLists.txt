@@ -11,6 +11,7 @@ add_executable(
     src/main.c
     src/list.h
     src/chunk.c src/chunk.h
+    src/world.c src/world.h
     src/camera.c src/camera.h
     src/file.c src/file.h
     src/window.c src/window.h

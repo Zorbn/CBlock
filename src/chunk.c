@@ -15,6 +15,7 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
         .z = z,
         .heightmap_min = malloc(heightmap_length * sizeof(int32_t)),
         .heightmap_max = calloc(heightmap_length, sizeof(int32_t)),
+        .is_dirty = false,
     };
 
     assert(chunk.blocks);
@@ -56,6 +57,7 @@ void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8
 
     size_t i = chunk_get_index(x, y, z);
     chunk->blocks[i] = block;
+    chunk->is_dirty = true;
 }
 
 void chunk_destroy(struct Chunk *chunk) {

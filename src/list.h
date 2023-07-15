@@ -32,7 +32,7 @@
     inline void list_push_##type(struct List_##type *list, type value) {                                               \
         if (list->length >= list->capacity) {                                                                          \
             list->capacity *= 2;                                                                                       \
-            list->data = realloc(list->data, list->capacity * sizeof(type));                                                          \
+            list->data = realloc(list->data, list->capacity * sizeof(type));                                           \
             assert(list->data);                                                                                        \
         }                                                                                                              \
                                                                                                                        \

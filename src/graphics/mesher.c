@@ -101,6 +101,15 @@ const uint16_t cube_indices[6][6] = {
     {0, 2, 1, 0, 3, 2}, // Down
 };
 
+const float cube_shades[6] = {
+    0.950f, // Forward
+    0.925f, // Backward
+    0.975f, // Right
+    0.900f, // Left
+    1.000f, // Up
+    0.875f, // Down
+};
+
 const int32_t directions[6][3] = {
     {0, 0, -1}, // Forward
     {0, 0, 1},  // Backward
@@ -117,30 +126,32 @@ struct Mesher mesher_create() {
     };
 }
 
-struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct Chunk *chunk) {
+struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk) {
     const size_t vertex_component_count = 8;
 
     list_reset_float(&mesher->vertices);
     list_reset_uint32_t(&mesher->indices);
 
     for (int32_t z = 0; z < chunk_size; z++) {
+        int32_t world_z = z + chunk->z;
         for (int32_t x = 0; x < chunk_size; x++) {
+            int32_t world_x = x + chunk->x;
             int32_t y_min = chunk->heightmap_min[x + z * chunk_size];
             int32_t y_max = chunk->heightmap_max[x + z * chunk_size];
             for (int32_t y = y_min; y <= y_max; y++) {
-                uint8_t block = chunk_get_block(chunk, x, y, z);
+                uint8_t block = world_get_block(world, world_x, y, world_z);
                 // Don't include empty blocks in the mesh.
                 if (block == 0) {
                     continue;
                 }
 
-                // Finding the neighbors first improves the cache efficiency slightly.
+                // Finding the neighbors first is more cache efficient.
                 uint8_t neighbors[6];
                 for (size_t side_i = 0; side_i < 6; side_i++) {
-                    int32_t neighbor_x = x + directions[side_i][0];
+                    int32_t neighbor_x = chunk->x + x + directions[side_i][0];
                     int32_t neighbor_y = y + directions[side_i][1];
-                    int32_t neighbor_z = z + directions[side_i][2];
-                    neighbors[side_i] = chunk_get_block(chunk, neighbor_x, neighbor_y, neighbor_z);
+                    int32_t neighbor_z = chunk->z + z + directions[side_i][2];
+                    neighbors[side_i] = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
                 }
 
                 for (size_t side_i = 0; side_i < 6; side_i++) {
@@ -156,6 +167,8 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct Chunk *chunk) {
                         list_push_uint32_t(&mesher->indices, index);
                     }
 
+                    float side_shade = cube_shades[side_i];
+
                     for (size_t vertex_i = 0; vertex_i < 4; vertex_i++) {
                         // Position:
                         float vertex_x = chunk->x + x + cube_vertices[side_i][vertex_i][0];
@@ -166,9 +179,9 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct Chunk *chunk) {
                         list_push_float(&mesher->vertices, vertex_z);
 
                         // Color:
-                        list_push_float(&mesher->vertices, 1.0f);
-                        list_push_float(&mesher->vertices, 1.0f);
-                        list_push_float(&mesher->vertices, 1.0f);
+                        list_push_float(&mesher->vertices, side_shade);
+                        list_push_float(&mesher->vertices, side_shade);
+                        list_push_float(&mesher->vertices, side_shade);
 
                         // UV:
                         list_push_float(&mesher->vertices, cube_uvs[side_i][vertex_i][0]);

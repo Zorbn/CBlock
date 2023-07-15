@@ -1,6 +1,6 @@
 #include "window.h"
-#include "chunk.h"
 #include "camera.h"
+#include "world.h"
 #include "graphics/mesh.h"
 #include "graphics/mesher.h"
 #include "graphics/resources.h"
@@ -15,8 +15,18 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-const size_t world_size = 24;
-const size_t world_length = world_size * world_size;
+#define SPRITE_SIZE 16.0f
+#define SPRITE_X (640.0f / 2.0f - SPRITE_SIZE / 2.0f)
+#define SPRITE_Y (480.0f / 2.0f - SPRITE_SIZE / 2.0f)
+
+const float sprite_vertices[] = {
+    SPRITE_X, SPRITE_Y, 0, 1, 1, 1, 0, 1,                             // 1
+    SPRITE_X, SPRITE_Y + SPRITE_SIZE, 0, 1, 1, 1, 0, 0,               // 2
+    SPRITE_X + SPRITE_SIZE, SPRITE_Y + SPRITE_SIZE, 0, 1, 1, 1, 1, 0, // 3
+    SPRITE_X + SPRITE_SIZE, SPRITE_Y, 0, 1, 1, 1, 1, 1,               // 4
+};
+
+const uint32_t sprite_indices[] = {0, 2, 1, 0, 3, 2};
 
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
@@ -25,39 +35,42 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-    uint32_t program = program_create("shader.vert", "shader.frag");
+    uint32_t program_3d = program_create("shader_3d.vert", "shader_3d.frag");
+    uint32_t program_2d = program_create("shader_2d.vert", "shader_2d.frag");
     uint32_t texture = texture_create("texture.png");
+
+    // TODO: Accept a const ptr in mesh_create.
+    struct Mesh cursor_mesh = mesh_create(sprite_vertices, 4, sprite_indices, 6);
+    float cursor_x = 0.0f;
+    float cursor_y = 0.0f;
 
     struct Mesher mesher = mesher_create();
     struct Chunk chunks[world_length];
     struct Mesh meshes[world_length];
+    struct World world = world_create();
 
     {
-        for (size_t i = 0; i < world_length; i++) {
-            chunks[i] = chunk_create((i % world_size) * chunk_size, i / world_size * chunk_size);
-        }
-        
-        double start_world_load = glfwGetTime();
-        for (size_t i = 0; i < world_length; i++) {
-            meshes[i] = mesher_mesh_chunk(&mesher, &chunks[i]);
-        }
-        double end_world_load = glfwGetTime();
-        printf("World loaded in %fs\n", end_world_load - start_world_load);
+        double start_world_mesh = glfwGetTime();
+        world_mesh_chunks(&world);
+        double end_world_mesh = glfwGetTime();
+        printf("World meshed in %fs\n", end_world_mesh - start_world_mesh);
     }
 
     struct Camera camera = camera_create();
     camera.position.y = chunk_height / 2;
 
     mat4s view_matrix;
-    mat4s projection_matrix;
+    mat4s projection_matrix_3d;
+    mat4s projection_matrix_2d;
 
-    int32_t view_matrix_location = glGetUniformLocation(program, "view_matrix");
-    int32_t projection_matrix_location = glGetUniformLocation(program, "projection_matrix");
+    int32_t view_matrix_location = glGetUniformLocation(program_3d, "view_matrix");
+    int32_t projection_matrix_location = glGetUniformLocation(program_3d, "projection_matrix");
 
     double last_time = glfwGetTime();
     float fps_print_timer = 0.0f;
 
     while (!glfwWindowShouldClose(window.glfw_window)) {
+        // Update:
         window_update_mouse_lock(&window);
 
         double current_time = glfwGetTime();
@@ -73,35 +86,43 @@ int main() {
 
         camera_move(&camera, &window, delta_time);
         camera_rotate(&camera, &window);
+        camera_interact(&camera, &window, &world);
         view_matrix = camera_get_view_matrix(&camera);
 
+        world_mesh_chunks(&world);
+
+        // Draw:
         if (window.was_resized) {
             glViewport(0, 0, window.width, window.height);
-            projection_matrix = glms_perspective(glm_rad(90.0), window.width / (float)window.height, 0.1f, 100.0f);
+            projection_matrix_3d = glms_perspective(glm_rad(90.0), window.width / (float)window.height, 0.1f, 100.0f);
+            projection_matrix_2d = glms_ortho(0.0f, (float)window.width, 0.0f, (float)window.height, -100.0, 100.0);
+
+            cursor_x = window.width / 2.0f - SPRITE_SIZE / 2.0f;
+            cursor_y = window.height / 2.0f - SPRITE_SIZE / 2.0f;
+
             window.was_resized = false;
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glUseProgram(program);
+        glUseProgram(program_3d);
         glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, (const float *)&view_matrix);
-        glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix);
+        glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix_3d);
         glBindTexture(GL_TEXTURE_2D, texture);
-        for (size_t i = 0; i < world_length; i++) {
-            mesh_draw(&meshes[i]);
-        }
+        world_draw(&world);
+
+        glUseProgram(program_2d);
+        glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix_2d);
+        mesh_draw(&cursor_mesh);
 
         glfwSwapBuffers(window.glfw_window);
         glfwPollEvents();
     }
 
-    for (size_t i = 0; i < world_length; i++) {
-        chunk_destroy(&chunks[i]);
-        mesh_destroy(&meshes[i]);
-    }
-    mesher_destroy(&mesher);
+    mesh_destroy(&cursor_mesh);
+    world_destroy(&world);
 
-    glDeleteProgram(program);
+    glDeleteProgram(program_3d);
 
     glfwTerminate();
 

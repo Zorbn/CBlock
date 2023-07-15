@@ -63,16 +63,32 @@ void camera_rotate(struct Camera *camera, struct Window *window) {
     camera->rotation_x -= delta_y * camera_rotate_speed;
     camera->rotation_y -= delta_x * camera_rotate_speed;
     camera->rotation_x = glm_clamp(camera->rotation_x, -89.0f, 89.0f);
-}
 
-mat4s camera_get_view_matrix(struct Camera *camera) {
     mat4s rotation_matrix_y = glms_rotate_y(glms_mat4_identity(), glm_rad(camera->rotation_y));
     mat4s rotation_matrix_x = glms_rotate_x(glms_mat4_identity(), glm_rad(camera->rotation_x));
 
-    vec3s view_target = {0.0f, 0.0f, -1.0f};
-    view_target = glms_mat4_mulv3(rotation_matrix_x, view_target, 1.0f);
-    view_target = glms_mat4_mulv3(rotation_matrix_y, view_target, 1.0f);
-    view_target = glms_vec3_add(view_target, camera->position);
+    vec3s look_vector = {0.0f, 0.0f, -1.0f};
+    look_vector = glms_mat4_mulv3(rotation_matrix_x, look_vector, 1.0f);
+    look_vector = glms_mat4_mulv3(rotation_matrix_y, look_vector, 1.0f);
+    camera->look_vector = look_vector;
+}
+
+void camera_interact(struct Camera *camera, struct Window *window, struct World *world) {
+    if (glfwGetMouseButton(window->glfw_window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS) {
+        return;
+    }
+
+    struct RaycastHit hit = world_raycast(world, camera->position, camera->look_vector, 10.0f);
+
+    if (hit.block == 0) {
+        return;
+    }
+
+    world_set_block(world, hit.position.x, hit.position.y, hit.position.z, 0);
+}
+
+mat4s camera_get_view_matrix(struct Camera *camera) {
+    vec3s view_target = glms_vec3_add(camera->look_vector, camera->position);
 
     return glms_lookat(camera->position, view_target, GLMS_YUP);
 }
