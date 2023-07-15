@@ -15,6 +15,9 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+const size_t world_size = 24;
+const size_t world_length = world_size * world_size;
+
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
 
@@ -26,13 +29,24 @@ int main() {
     uint32_t texture = texture_create("texture.png");
 
     struct Mesher mesher = mesher_create();
-    struct Chunk chunk = chunk_create();
-    struct Mesh mesh = mesher_mesh_chunk(&mesher, &chunk);
+    struct Chunk chunks[world_length];
+    struct Mesh meshes[world_length];
+
+    {
+        for (size_t i = 0; i < world_length; i++) {
+            chunks[i] = chunk_create((i % world_size) * chunk_size, i / world_size * chunk_size);
+        }
+        
+        double start_world_load = glfwGetTime();
+        for (size_t i = 0; i < world_length; i++) {
+            meshes[i] = mesher_mesh_chunk(&mesher, &chunks[i]);
+        }
+        double end_world_load = glfwGetTime();
+        printf("World loaded in %fs\n", end_world_load - start_world_load);
+    }
 
     struct Camera camera = camera_create();
-
-    vec3 center = {0.0f, 0.0f, 0.0f};
-    vec3 up = {0.0f, 1.0f, 0.0f};
+    camera.position.y = chunk_height / 2;
 
     mat4s view_matrix;
     mat4s projection_matrix;
@@ -41,14 +55,21 @@ int main() {
     int32_t projection_matrix_location = glGetUniformLocation(program, "projection_matrix");
 
     double last_time = glfwGetTime();
+    float fps_print_timer = 0.0f;
 
     while (!glfwWindowShouldClose(window.glfw_window)) {
         window_update_mouse_lock(&window);
 
         double current_time = glfwGetTime();
         float delta_time = (float)(current_time - last_time);
-        printf("fps: %f\n", 1.0f / delta_time);
         last_time = current_time;
+
+        fps_print_timer += delta_time;
+
+        if (fps_print_timer > 1.0f) {
+            fps_print_timer = 0.0f;
+            printf("fps: %f\n", 1.0f / delta_time);
+        }
 
         camera_move(&camera, &window, delta_time);
         camera_rotate(&camera, &window);
@@ -66,14 +87,18 @@ int main() {
         glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, (const float *)&view_matrix);
         glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix);
         glBindTexture(GL_TEXTURE_2D, texture);
-        mesh_draw(&mesh);
+        for (size_t i = 0; i < world_length; i++) {
+            mesh_draw(&meshes[i]);
+        }
 
         glfwSwapBuffers(window.glfw_window);
         glfwPollEvents();
     }
 
-    mesh_destroy(&mesh);
-    chunk_destroy(&chunk);
+    for (size_t i = 0; i < world_length; i++) {
+        chunk_destroy(&chunks[i]);
+        mesh_destroy(&meshes[i]);
+    }
     mesher_destroy(&mesher);
 
     glDeleteProgram(program);

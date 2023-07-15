@@ -123,26 +123,29 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct Chunk *chunk) {
     list_reset_float(&mesher->vertices);
     list_reset_uint32_t(&mesher->indices);
 
-    // TODO: For each voxel, check the performance different of
-    // 1: Checking each neighbor one at a time while meshing faces, (as usual)
-    // 2: Getting all neighbors of the block first, then using them (2 passes)
-
-    for (int32_t y = 0; y < chunk_height; y++) {
-        for (int32_t z = 0; z < chunk_size; z++) {
-            for (int32_t x = 0; x < chunk_size; x++) {
+    for (int32_t z = 0; z < chunk_size; z++) {
+        for (int32_t x = 0; x < chunk_size; x++) {
+            int32_t y_min = chunk->heightmap_min[x + z * chunk_size];
+            int32_t y_max = chunk->heightmap_max[x + z * chunk_size];
+            for (int32_t y = y_min; y <= y_max; y++) {
                 uint8_t block = chunk_get_block(chunk, x, y, z);
                 // Don't include empty blocks in the mesh.
                 if (block == 0) {
                     continue;
                 }
 
+                // Finding the neighbors first improves the cache efficiency slightly.
+                uint8_t neighbors[6];
                 for (size_t side_i = 0; side_i < 6; side_i++) {
                     int32_t neighbor_x = x + directions[side_i][0];
                     int32_t neighbor_y = y + directions[side_i][1];
                     int32_t neighbor_z = z + directions[side_i][2];
-                    uint8_t neighbor_block = chunk_get_block(chunk, neighbor_x, neighbor_y, neighbor_z);
+                    neighbors[side_i] = chunk_get_block(chunk, neighbor_x, neighbor_y, neighbor_z);
+                }
+
+                for (size_t side_i = 0; side_i < 6; side_i++) {
                     // Skip faces that are covered by a neighboring block.
-                    if (neighbor_block != 0) {
+                    if (neighbors[side_i] != 0) {
                         continue;
                     }
 
@@ -155,9 +158,9 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct Chunk *chunk) {
 
                     for (size_t vertex_i = 0; vertex_i < 4; vertex_i++) {
                         // Position:
-                        float vertex_x = x + cube_vertices[side_i][vertex_i][0];
+                        float vertex_x = chunk->x + x + cube_vertices[side_i][vertex_i][0];
                         float vertex_y = y + cube_vertices[side_i][vertex_i][1];
-                        float vertex_z = z + cube_vertices[side_i][vertex_i][2];
+                        float vertex_z = chunk->z + z + cube_vertices[side_i][vertex_i][2];
                         list_push_float(&mesher->vertices, vertex_x);
                         list_push_float(&mesher->vertices, vertex_y);
                         list_push_float(&mesher->vertices, vertex_z);
