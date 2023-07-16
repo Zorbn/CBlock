@@ -1,6 +1,8 @@
 #ifndef CHUNK_H
 #define CHUNK_H
 
+#include "detect_leak.h"
+
 #include <inttypes.h>
 #include <stdbool.h>
 

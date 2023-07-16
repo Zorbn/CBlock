@@ -1,6 +1,8 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include "detect_leak.h"
+
 #include "list.h"
 
 #include <GLFW/glfw3.h>

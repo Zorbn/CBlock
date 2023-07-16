@@ -128,10 +128,8 @@ struct Mesher mesher_create() {
     };
 }
 
-struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk,
+void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk,
     int32_t texture_atlas_width, int32_t texture_atlas_height) {
-
-    const size_t vertex_component_count = 9;
 
     list_reset_float(&mesher->vertices);
     list_reset_uint32_t(&mesher->indices);
@@ -201,9 +199,6 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct
             }
         }
     }
-
-    return mesh_create(mesher->vertices.data, mesher->vertices.length / vertex_component_count, mesher->indices.data,
-        mesher->indices.length);
 }
 
 void mesher_destroy(struct Mesher *mesher) {

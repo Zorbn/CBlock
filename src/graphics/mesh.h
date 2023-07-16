@@ -1,9 +1,13 @@
 #ifndef MESH_H
 #define MESH_H
 
+#include "../detect_leak.h"
+
 #include <glad/glad.h>
 
 #include <inttypes.h>
+
+extern const size_t vertex_component_count;
 
 struct Mesh {
     uint32_t vbo;

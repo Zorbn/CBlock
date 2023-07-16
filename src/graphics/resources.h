@@ -1,6 +1,8 @@
 #ifndef RESOURCES_H
 #define RESOURCES_H
 
+#include "../detect_leak.h"
+
 #include <inttypes.h>
 #include <glad/glad.h>
 

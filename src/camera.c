@@ -28,7 +28,6 @@ void camera_move(struct Camera *camera, struct Window *window, float delta_time)
     }
 
     if (input_is_button_held(&window->input, GLFW_KEY_SPACE)) {
-        puts("held space");
         direction.y += 1.0f;
     }
 

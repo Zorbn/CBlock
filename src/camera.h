@@ -1,6 +1,8 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include "detect_leak.h"
+
 #include "window.h"
 #include "world.h"
 

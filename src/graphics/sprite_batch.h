@@ -1,6 +1,8 @@
 #ifndef SPRITE_BATCH_H
 #define SPRITE_BATCH_H
 
+#include "../detect_leak.h"
+
 #include "../list.h"
 #include "mesh.h"
 

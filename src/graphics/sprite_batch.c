@@ -2,9 +2,7 @@
 
 #include <cglm/struct.h>
 
-#define SPRITE_SIZE 16.0f
-#define SPRITE_X (640.0f / 2.0f - SPRITE_SIZE / 2.0f)
-#define SPRITE_Y (480.0f / 2.0f - SPRITE_SIZE / 2.0f)
+#define SPRITE_TEXTURE_PADDING 0.01f
 
 const vec3s sprite_vertices[4] = {
     {{0, 0, 0}},
@@ -22,12 +20,10 @@ const vec2s sprite_uvs[4] = {
 
 const uint32_t sprite_indices[] = {0, 2, 1, 0, 3, 2};
 
-const size_t sprite_vertex_component_count = 8;
-
 struct SpriteBatch sprite_batch_create(int capacity) {
     return (struct SpriteBatch){
         .sprites = list_create_struct_Sprite(capacity),
-        .vertices = list_create_float(capacity * sprite_vertex_component_count),
+        .vertices = list_create_float(capacity * vertex_component_count),
         .indices = list_create_uint32_t(capacity * 6),
     };
 }
@@ -51,7 +47,7 @@ void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_wi
     for (size_t i = 0; i < sprite_batch->sprites.length; i++) {
         struct Sprite *sprite = &sprite_batch->sprites.data[i];
 
-        uint32_t vertex_count = sprite_batch->vertices.length / sprite_vertex_component_count;
+        uint32_t vertex_count = sprite_batch->vertices.length / vertex_component_count;
 
         for (size_t index_i = 0; index_i < 6; index_i++) {
             uint32_t index = vertex_count + sprite_indices[index_i];
@@ -73,8 +69,10 @@ void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_wi
             list_push_float(&sprite_batch->vertices, 1.0f);
 
             // UV:
-            float u = sprite->texture_x + sprite_uvs[vertex_i].u * sprite->texture_width;
-            float v = sprite->texture_y + sprite_uvs[vertex_i].v * sprite->texture_height;
+            float u = sprite->texture_x + SPRITE_TEXTURE_PADDING +
+                      sprite_uvs[vertex_i].u * (sprite->texture_width - SPRITE_TEXTURE_PADDING);
+            float v = sprite->texture_y + SPRITE_TEXTURE_PADDING +
+                      sprite_uvs[vertex_i].v * (sprite->texture_height - SPRITE_TEXTURE_PADDING);
             list_push_float(&sprite_batch->vertices, u * inv_texture_width);
             list_push_float(&sprite_batch->vertices, v * inv_texture_height);
             list_push_float(&sprite_batch->vertices, 0.0f);
@@ -82,7 +80,7 @@ void sprite_batch_end(struct SpriteBatch *sprite_batch, int32_t texture_atlas_wi
     }
 
     sprite_batch->mesh =
-        mesh_create(sprite_batch->vertices.data, sprite_batch->vertices.length / sprite_vertex_component_count,
+        mesh_create(sprite_batch->vertices.data, sprite_batch->vertices.length / vertex_component_count,
             sprite_batch->indices.data, sprite_batch->indices.length);
 }
 
@@ -92,6 +90,7 @@ void sprite_batch_draw(struct SpriteBatch *sprite_batch) {
 
 void sprite_batch_destroy(struct SpriteBatch *sprite_batch) {
     mesh_destroy(&sprite_batch->mesh);
+    list_destroy_struct_Sprite(&sprite_batch->sprites);
     list_destroy_float(&sprite_batch->vertices);
     list_destroy_uint32_t(&sprite_batch->indices);
 }

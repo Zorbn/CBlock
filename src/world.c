@@ -21,19 +21,6 @@ struct World world_create() {
     return world;
 }
 
-void world_mesh_chunks(struct World *world, int32_t texture_atlas_width, int32_t texture_atlas_height) {
-    for (size_t i = 0; i < world_length; i++) {
-        if (!world->chunks[i].is_dirty) {
-            continue;
-        }
-
-        mesh_destroy(&world->meshes[i]);
-        world->meshes[i] =
-            mesher_mesh_chunk(&world->mesher, world, &world->chunks[i], texture_atlas_width, texture_atlas_height);
-        world->chunks[i].is_dirty = false;
-    }
-}
-
 void world_draw(struct World *world) {
     for (size_t i = 0; i < world_length; i++) {
         mesh_draw(&world->meshes[i]);
@@ -112,6 +99,9 @@ void world_destroy(struct World *world) {
         chunk_destroy(&world->chunks[i]);
         mesh_destroy(&world->meshes[i]);
     }
+
+    free(world->chunks);
+    free(world->meshes);
 
     mesher_destroy(&world->mesher);
 }

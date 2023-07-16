@@ -1,6 +1,8 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include "detect_leak.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>

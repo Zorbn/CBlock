@@ -1,6 +1,8 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
+#include "detect_leak.h"
+
 // Glad needs to be included before GLFW.
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>

@@ -1,6 +1,8 @@
 #ifndef WORLD_H
 #define WORLD_H
 
+#include "detect_leak.h"
+
 #include "chunk.h"
 #include "graphics/mesh.h"
 #include "graphics/mesher.h"
@@ -27,11 +29,11 @@ struct RaycastHit {
 #define CHUNK_INDEX(chunk_x, chunk_z) ((chunk_x) + (chunk_z)*world_size)
 
 struct World world_create();
-void world_mesh_chunks(struct World *world, int32_t texture_atlas_width, int32_t texture_atlas_height);
 void world_draw(struct World *world);
 struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s direction, float range);
 void world_destroy(struct World *world);
 
+// TODO: Should this still be inline? It has a lot of code...
 inline void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block) {
     const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
@@ -69,7 +71,7 @@ inline void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z
 inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z) {
     const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
-        return 0;
+        return 1;
     }
 
     int32_t chunk_x = x / chunk_size;

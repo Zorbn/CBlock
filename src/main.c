@@ -1,3 +1,5 @@
+#include "detect_leak.h"
+
 #include "window.h"
 #include "camera.h"
 #include "world.h"
@@ -16,7 +18,57 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdatomic.h>
+
 #define BLOCK_TEXTURE_COUNT 2
+
+struct MeshingThreadInfo {
+    struct World *world;
+    _Atomic(int32_t) processed_chunk_i;
+    _Atomic(bool) is_done;
+    int32_t texture_atlas_width;
+    int32_t texture_atlas_height;
+};
+
+DWORD WINAPI meshing_thread_start(void *start_info) {
+    struct MeshingThreadInfo *info = start_info;
+    while (!info->is_done) {
+        while (info->processed_chunk_i != -1) {
+            Sleep(0);
+        }
+
+        for (int32_t i = 0; i < world_length; i++) {
+            if (!info->world->chunks[i].is_dirty) {
+                continue;
+            }
+
+            info->world->chunks[i].is_dirty = false;
+
+            // double start_chunk_mesh = glfwGetTime();
+            mesher_mesh_chunk(&info->world->mesher, info->world, &info->world->chunks[i], info->texture_atlas_width,
+                info->texture_atlas_height);
+            // double end_chunk_mesh = glfwGetTime();
+            // printf("Chunk meshed in %fs\n", end_chunk_mesh - start_chunk_mesh);
+            info->processed_chunk_i = i;
+            break;
+        }
+    }
+
+    return 0;
+}
+
+void upload_processed_chunk(struct MeshingThreadInfo *info) {
+    int32_t processed_chunk_i = info->processed_chunk_i;
+    if (processed_chunk_i != -1) {
+        mesh_destroy(&info->world->meshes[processed_chunk_i]);
+        info->world->meshes[processed_chunk_i] =
+            mesh_create(info->world->mesher.vertices.data, info->world->mesher.vertices.length / vertex_component_count,
+                info->world->mesher.indices.data, info->world->mesher.indices.length);
+        info->processed_chunk_i = -1;
+    }
+}
 
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
@@ -43,13 +95,6 @@ int main() {
 
     struct World world = world_create();
 
-    {
-        double start_world_mesh = glfwGetTime();
-        world_mesh_chunks(&world, texture_atlas_3d.width, texture_atlas_3d.height);
-        double end_world_mesh = glfwGetTime();
-        printf("World meshed in %fs\n", end_world_mesh - start_world_mesh);
-    }
-
     struct Camera camera = camera_create();
     camera.position.y = chunk_height / 2;
 
@@ -62,6 +107,16 @@ int main() {
 
     double last_time = glfwGetTime();
     float fps_print_timer = 0.0f;
+
+    struct MeshingThreadInfo meshing_thread_info = (struct MeshingThreadInfo){
+        .world = &world,
+        .processed_chunk_i = -1,
+        .is_done = false,
+        .texture_atlas_width = texture_atlas_3d.width,
+        .texture_atlas_height = texture_atlas_3d.height,
+    };
+    HANDLE meshing_thread = CreateThread(NULL, 0, meshing_thread_start, &meshing_thread_info, 0, NULL);
+    assert(meshing_thread);
 
     while (!glfwWindowShouldClose(window.glfw_window)) {
         // Update:
@@ -92,7 +147,7 @@ int main() {
         camera_interact(&camera, &window.input, &world);
         view_matrix = camera_get_view_matrix(&camera);
 
-        world_mesh_chunks(&world, texture_atlas_3d.width, texture_atlas_3d.height);
+        upload_processed_chunk(&meshing_thread_info);
 
         sprite_batch_begin(&sprite_batch);
         sprite_batch_add(&sprite_batch, (struct Sprite){
@@ -126,6 +181,9 @@ int main() {
         glfwPollEvents();
     }
 
+    meshing_thread_info.is_done = true;
+    WaitForSingleObject(meshing_thread, INFINITE);
+
     sprite_batch_destroy(&sprite_batch);
     world_destroy(&world);
 
@@ -135,6 +193,8 @@ int main() {
     glDeleteProgram(program_3d);
 
     window_destroy(&window);
+
+    printf("Found leaks: %s\n", _CrtDumpMemoryLeaks() ? "true" : "false");
 
     return 0;
 }
