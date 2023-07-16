@@ -52,19 +52,19 @@ inline void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z
 
     chunk_set_block(&world->chunks[chunk_i], block_x, block_y, block_z, block);
 
-    if (block_x == 0) {
+    if (block_x == 0 && chunk_x > 0) {
         world->chunks[CHUNK_INDEX(chunk_x - 1, chunk_z)].is_dirty = true;
     }
 
-    if (block_x == chunk_size - 1) {
+    if (block_x == chunk_size - 1 && chunk_x < world_size - 1) {
         world->chunks[CHUNK_INDEX(chunk_x + 1, chunk_z)].is_dirty = true;
     }
 
-    if (block_z == 0) {
+    if (block_z == 0 && chunk_z > 0) {
         world->chunks[CHUNK_INDEX(chunk_x, chunk_z - 1)].is_dirty = true;
     }
 
-    if (block_z == chunk_size - 1) {
+    if (block_z == chunk_size - 1 && chunk_z < world_size - 1) {
         world->chunks[CHUNK_INDEX(chunk_x, chunk_z + 1)].is_dirty = true;
     }
 }

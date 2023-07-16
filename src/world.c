@@ -14,6 +14,9 @@ struct World world_create() {
         .mesher = mesher_create(),
     };
 
+    assert(world.chunks);
+    assert(world.meshes);
+
     for (size_t i = 0; i < world_length; i++) {
         world.chunks[i] = chunk_create((i % world_size) * chunk_size, i / world_size * chunk_size);
     }
@@ -140,10 +143,10 @@ void world_destroy(struct World *world) {
         mesh_destroy(&world->meshes[i]);
     }
 
+    mesher_destroy(&world->mesher);
+
     free(world->chunks);
     free(world->meshes);
-
-    mesher_destroy(&world->mesher);
 }
 
 extern inline void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block);
