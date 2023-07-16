@@ -31,6 +31,7 @@ struct RaycastHit {
 struct World world_create();
 void world_draw(struct World *world);
 struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s direction, float range);
+bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size, vec3s origin);
 void world_destroy(struct World *world);
 
 // TODO: Should this still be inline? It has a lot of code...

@@ -8,7 +8,7 @@ struct Camera camera_create() {
     };
 }
 
-void camera_move(struct Camera *camera, struct Window *window, float delta_time) {
+void camera_move(struct Camera *camera, struct Window *window, struct World* world, float delta_time) {
     if (!window->is_mouse_locked) {
         return;
     }
@@ -49,10 +49,32 @@ void camera_move(struct Camera *camera, struct Window *window, float delta_time)
     vec3s right_movement = glms_vec3_rotate(GLMS_ZUP, glm_rad(camera->rotation_y + 90.0f), GLMS_YUP);
     right_movement = glms_vec3_scale(right_movement, direction.x * current_move_speed);
 
-    camera->position = glms_vec3_add(camera->position, forward_movement);
-    camera->position = glms_vec3_add(camera->position, right_movement);
+    const vec3s size = (vec3s){
+        .x = 0.8f,
+        .y = 1.8f,
+        .z = 0.8f,
+    };
+    const vec3s origin = (vec3s){
+        .y = 0.75f,
+    };
 
-    camera->position.y += direction.y * current_move_speed;
+    vec3s delta_position = glms_vec3_add(forward_movement, right_movement);
+    delta_position.y = direction.y * current_move_speed;
+
+    camera->position.z += delta_position.z;
+    if (world_is_colliding_with_box(world, camera->position, size, origin)) {
+        camera->position.z -= delta_position.z;
+    }
+
+    camera->position.x += delta_position.x;
+    if (world_is_colliding_with_box(world, camera->position, size, origin)) {
+        camera->position.x -= delta_position.x;
+    }
+
+    camera->position.y += delta_position.y;
+    if (world_is_colliding_with_box(world, camera->position, size, origin)) {
+        camera->position.y -= delta_position.y;
+    }
 }
 
 // TODO: Mouse delta should be handled by Input not Window.

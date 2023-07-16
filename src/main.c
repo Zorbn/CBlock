@@ -96,7 +96,9 @@ int main() {
     struct World world = world_create();
 
     struct Camera camera = camera_create();
-    camera.position.y = chunk_height / 2;
+    camera.position.y = chunk_height / 2 + 3;
+    camera.position.x += 2;
+    camera.position.z += 2;
 
     mat4s view_matrix;
     mat4s projection_matrix_3d;
@@ -142,7 +144,7 @@ int main() {
             printf("fps: %f\n", 1.0f / delta_time);
         }
 
-        camera_move(&camera, &window, delta_time);
+        camera_move(&camera, &window, &world, delta_time);
         camera_rotate(&camera, &window);
         camera_interact(&camera, &window.input, &world);
         view_matrix = camera_get_view_matrix(&camera);

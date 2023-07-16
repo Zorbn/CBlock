@@ -94,6 +94,46 @@ struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s directio
     };
 }
 
+bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size, vec3s origin) {
+    vec3s half_size = glms_vec3_scale(size, 0.5f);
+    vec3s min_position = glms_vec3_sub(position, half_size);
+    min_position = glms_vec3_sub(min_position, origin);
+    vec3s max_position = glms_vec3_add(position, half_size);
+    max_position = glms_vec3_sub(max_position, origin);
+
+    ivec3s steps = (ivec3s){
+        .x = (int32_t)floorf(size.x) + 1,
+        .y = (int32_t)floorf(size.y) + 1,
+        .z = (int32_t)floorf(size.z) + 1,
+    };
+    vec3s interpolated_position;
+
+    // Interpolate between the minimum and maximum positions, checking each block between them.
+    for (int32_t z = 0; z <= steps.z; z++) {
+        interpolated_position.z = min_position.z + (float)z / steps.z * size.z;
+        for (int32_t x = 0; x <= steps.x; x++) {
+            interpolated_position.x = min_position.x + (float)x / steps.x * size.x;
+            for (int32_t y = 0; y <= steps.y; y++) {
+                interpolated_position.y = min_position.y + (float)y / steps.y * size.y;
+
+                ivec3s interpolated_block_position = (ivec3s){
+                    .x = (int32_t)floorf(interpolated_position.x),
+                    .y = (int32_t)floorf(interpolated_position.y),
+                    .z = (int32_t)floorf(interpolated_position.z),
+                };
+
+                if (world_get_block(world, interpolated_block_position.x, interpolated_block_position.y,
+                        interpolated_block_position.z) != 0) {
+
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 void world_destroy(struct World *world) {
     for (size_t i = 0; i < world_length; i++) {
         chunk_destroy(&world->chunks[i]);
