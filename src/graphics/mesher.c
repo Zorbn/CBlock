@@ -140,8 +140,9 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct
         int32_t world_z = z + chunk->z;
         for (int32_t x = 0; x < chunk_size; x++) {
             int32_t world_x = x + chunk->x;
-            int32_t y_min = chunk->heightmap_min[x + z * chunk_size];
-            int32_t y_max = chunk->heightmap_max[x + z * chunk_size];
+            int32_t heightmap_index = HEIGHTMAP_INDEX(x, z);
+            int32_t y_min = chunk->heightmap_min[heightmap_index];
+            int32_t y_max = chunk->heightmap_max[heightmap_index];
             for (int32_t y = y_min; y <= y_max; y++) {
                 uint8_t block = world_get_block(world, world_x, y, world_z);
                 // Don't include empty blocks in the mesh.

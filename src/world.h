@@ -24,6 +24,8 @@ struct RaycastHit {
     ivec3s last_position;
 };
 
+#define CHUNK_INDEX(chunk_x, chunk_z) ((chunk_x) + (chunk_z)*world_size)
+
 struct World world_create();
 void world_mesh_chunks(struct World *world, int32_t texture_atlas_width, int32_t texture_atlas_height);
 void world_draw(struct World *world);
@@ -46,6 +48,22 @@ inline void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z
     int32_t block_z = z % chunk_size;
 
     chunk_set_block(&world->chunks[chunk_i], block_x, block_y, block_z, block);
+
+    if (block_x == 0) {
+        world->chunks[CHUNK_INDEX(chunk_x - 1, chunk_z)].is_dirty = true;
+    }
+
+    if (block_x == chunk_size - 1) {
+        world->chunks[CHUNK_INDEX(chunk_x + 1, chunk_z)].is_dirty = true;
+    }
+
+    if (block_z == 0) {
+        world->chunks[CHUNK_INDEX(chunk_x, chunk_z - 1)].is_dirty = true;
+    }
+
+    if (block_z == chunk_size - 1) {
+        world->chunks[CHUNK_INDEX(chunk_x, chunk_z + 1)].is_dirty = true;
+    }
 }
 
 inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z) {

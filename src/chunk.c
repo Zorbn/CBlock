@@ -47,9 +47,9 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
 // TODO: Should this be inline?
 void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t block) {
     if (block != 0) {
-        // TODO: Maybe make a heightmap_get_index function?
-        int32_t *heightmap_current_min = chunk->heightmap_min + x + z * chunk_size;
-        int32_t *heightmap_current_max = chunk->heightmap_max + x + z * chunk_size;
+        int32_t heightmap_index = HEIGHTMAP_INDEX(x, z);
+        int32_t *heightmap_current_min = chunk->heightmap_min + heightmap_index;
+        int32_t *heightmap_current_max = chunk->heightmap_max + heightmap_index;
 
         if (y < *heightmap_current_min) {
             *heightmap_current_min = y;
@@ -58,7 +58,7 @@ void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8
         }
     }
 
-    size_t i = chunk_get_index(x, y, z);
+    size_t i = BLOCK_INDEX(x, y, z);
     chunk->blocks[i] = block;
     chunk->is_dirty = true;
 }
@@ -69,5 +69,4 @@ void chunk_destroy(struct Chunk *chunk) {
     free(chunk->heightmap_max);
 }
 
-extern inline size_t chunk_get_index(int32_t x, int32_t y, int32_t z);
 extern inline uint8_t chunk_get_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z);
