@@ -15,27 +15,28 @@ void camera_move(struct Camera *camera, struct Window *window, float delta_time)
 
     vec3s direction = {{0.0f, 0.0f, 0.0f}};
 
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_W) == GLFW_PRESS) {
+    if (input_is_button_held(&window->input, GLFW_KEY_W)) {
         direction.z -= 1.0f;
     }
 
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_S) == GLFW_PRESS) {
+    if (input_is_button_held(&window->input, GLFW_KEY_S)) {
         direction.z += 1.0f;
     }
 
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+    if (input_is_button_held(&window->input, GLFW_KEY_LEFT_SHIFT)) {
         direction.y -= 1.0f;
     }
 
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+    if (input_is_button_held(&window->input, GLFW_KEY_SPACE)) {
+        puts("held space");
         direction.y += 1.0f;
     }
 
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_A) == GLFW_PRESS) {
+    if (input_is_button_held(&window->input, GLFW_KEY_A)) {
         direction.x -= 1.0f;
     }
 
-    if (glfwGetKey(window->glfw_window, GLFW_KEY_D) == GLFW_PRESS) {
+    if (input_is_button_held(&window->input, GLFW_KEY_D)) {
         direction.x += 1.0f;
     }
 
@@ -55,6 +56,7 @@ void camera_move(struct Camera *camera, struct Window *window, float delta_time)
     camera->position.y += direction.y * current_move_speed;
 }
 
+// TODO: Mouse delta should be handled by Input not Window.
 void camera_rotate(struct Camera *camera, struct Window *window) {
     float delta_x, delta_y;
     window_get_mouse_delta(window, &delta_x, &delta_y);
@@ -73,18 +75,21 @@ void camera_rotate(struct Camera *camera, struct Window *window) {
     camera->look_vector = look_vector;
 }
 
-void camera_interact(struct Camera *camera, struct Window *window, struct World *world) {
-    if (glfwGetMouseButton(window->glfw_window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS) {
-        return;
+// TODO: This should be part of the player when it's created.
+void camera_interact(struct Camera *camera, struct Input *input, struct World *world) {
+    if (input_is_button_pressed(input, GLFW_MOUSE_BUTTON_LEFT)) {
+        struct RaycastHit hit = world_raycast(world, camera->position, camera->look_vector, 10.0f);
+
+        if (hit.block != 0) {
+            world_set_block(world, hit.position.x, hit.position.y, hit.position.z, 0);
+        }
+    } else if (input_is_button_pressed(input, GLFW_MOUSE_BUTTON_RIGHT)) {
+        struct RaycastHit hit = world_raycast(world, camera->position, camera->look_vector, 10.0f);
+
+        if (hit.block != 0) {
+            world_set_block(world, hit.last_position.x, hit.last_position.y, hit.last_position.z, 1);
+        }
     }
-
-    struct RaycastHit hit = world_raycast(world, camera->position, camera->look_vector, 10.0f);
-
-    if (hit.block == 0) {
-        return;
-    }
-
-    world_set_block(world, hit.position.x, hit.position.y, hit.position.z, 0);
 }
 
 mat4s camera_get_view_matrix(struct Camera *camera) {

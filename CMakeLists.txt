@@ -10,6 +10,7 @@ set (
 
     src/main.c
     src/list.h
+    src/input.c src/input.h
     src/chunk.c src/chunk.h
     src/world.c src/world.h
     src/camera.c src/camera.h

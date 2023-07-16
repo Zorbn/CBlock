@@ -10,6 +10,16 @@ void framebuffer_size_callback(GLFWwindow *glfw_window, int32_t width, int32_t h
     window->was_resized = true;
 }
 
+void key_callback(GLFWwindow *glfw_window, int32_t key, int32_t scancode, int32_t action, int32_t mods) {
+    struct Window *window = glfwGetWindowUserPointer(glfw_window);
+    input_update_button(&window->input, key, action);
+}
+
+void mouse_button_callback(GLFWwindow *glfw_window, int32_t button, int32_t action, int32_t mods) {
+    struct Window *window = glfwGetWindowUserPointer(glfw_window);
+    input_update_button(&window->input, button, action);
+}
+
 struct Window window_create(char *title, int32_t width, int32_t height) {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -29,6 +39,7 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
         .glfw_window = glfw_window,
         .is_mouse_locked = false,
         .is_mouse_up_to_date = false,
+        .input = input_create(),
     };
     glfwSetWindowUserPointer(glfw_window, (void *)&window);
 
@@ -39,6 +50,8 @@ struct Window window_create(char *title, int32_t width, int32_t height) {
 
     glfwSetFramebufferSizeCallback(glfw_window, framebuffer_size_callback);
     framebuffer_size_callback(glfw_window, width, height);
+    glfwSetKeyCallback(glfw_window, key_callback);
+    glfwSetMouseButtonCallback(glfw_window, mouse_button_callback);
 
     return window;
 }
@@ -77,4 +90,15 @@ void window_get_mouse_delta(struct Window *window, float *delta_x, float *delta_
     *delta_y = (float)(mouse_y - window->last_mouse_y);
     window->last_mouse_x = mouse_x;
     window->last_mouse_y = mouse_y;
+}
+
+void window_update(struct Window *window) {
+    window_update_mouse_lock(window);
+    input_update(&window->input);
+}
+
+void window_destroy(struct Window *window) {
+    input_destroy(&window->input);
+
+    glfwTerminate();
 }

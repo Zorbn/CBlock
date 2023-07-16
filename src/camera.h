@@ -17,7 +17,7 @@ struct Camera {
 struct Camera camera_create();
 void camera_move(struct Camera *camera, struct Window *window, float delta_time);
 void camera_rotate(struct Camera *camera, struct Window *window);
-void camera_interact(struct Camera *camera, struct Window *window, struct World *world);
+void camera_interact(struct Camera *camera, struct Input *input, struct World *world);
 mat4s camera_get_view_matrix(struct Camera *camera);
 
 #endif

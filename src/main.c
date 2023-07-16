@@ -76,8 +76,6 @@ int main() {
             window.was_resized = false;
         }
 
-        window_update_mouse_lock(&window);
-
         double current_time = glfwGetTime();
         float delta_time = (float)(current_time - last_time);
         last_time = current_time;
@@ -91,7 +89,7 @@ int main() {
 
         camera_move(&camera, &window, delta_time);
         camera_rotate(&camera, &window);
-        camera_interact(&camera, &window, &world);
+        camera_interact(&camera, &window.input, &world);
         view_matrix = camera_get_view_matrix(&camera);
 
         world_mesh_chunks(&world, texture_atlas_3d.width, texture_atlas_3d.height);
@@ -122,6 +120,8 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, texture_atlas_2d.id);
         sprite_batch_draw(&sprite_batch);
 
+        window_update(&window);
+
         glfwSwapBuffers(window.glfw_window);
         glfwPollEvents();
     }
@@ -134,7 +134,7 @@ int main() {
 
     glDeleteProgram(program_3d);
 
-    glfwTerminate();
+    window_destroy(&window);
 
     return 0;
 }

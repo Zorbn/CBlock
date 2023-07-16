@@ -46,5 +46,6 @@
 
 LIST_DEFINE(float)
 LIST_DEFINE(uint32_t)
+LIST_DEFINE(int32_t)
 
 #endif
