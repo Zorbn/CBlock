@@ -14,7 +14,8 @@ struct Mesher {
 };
 
 struct Mesher mesher_create();
-struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk);
+struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk,
+    int32_t texture_atlas_width, int32_t texture_atlas_height);
 void mesher_destroy(struct Mesher *mesher);
 
 #endif

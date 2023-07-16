@@ -9,9 +9,8 @@ struct Mesh mesh_create(const float *vertices, uint32_t vertex_count, const uint
 
     glBindVertexArray(vao);
 
-    const uint64_t sizeof_vec2 = sizeof(float) * 2;
     const uint64_t sizeof_vec3 = sizeof(float) * 3;
-    const uint64_t sizeof_vertex = sizeof_vec3 * 2 + sizeof_vec2;
+    const uint64_t sizeof_vertex = sizeof_vec3 * 3;
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof_vertex * vertex_count, vertices, GL_STATIC_DRAW);
@@ -20,7 +19,7 @@ struct Mesh mesh_create(const float *vertices, uint32_t vertex_count, const uint
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof_vertex, (void *)sizeof_vec3);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof_vertex, (void *)(sizeof_vec3 * 2));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof_vertex, (void *)(sizeof_vec3 * 2));
     glEnableVertexAttribArray(2);
 
     uint32_t ebo;

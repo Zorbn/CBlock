@@ -26,10 +26,17 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
         chunk.heightmap_min[i] = chunk_height;
     }
 
+    size_t ground_height = chunk_height / 2;
     for (size_t z = 0; z < chunk_size; z++) {
         for (size_t x = 0; x < chunk_size; x++) {
-            for (size_t y = 0; y < chunk_height / 2; y++) {
-                chunk_set_block(&chunk, x, y, z, 1);
+            for (size_t y = 0; y <= ground_height; y++) {
+                uint8_t block = 1;
+
+                if (y == ground_height) {
+                    block = 2;
+                }
+
+                chunk_set_block(&chunk, x, y, z, block);
             }
         }
     }
@@ -37,12 +44,8 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
     return chunk;
 }
 
+// TODO: Should this be inline?
 void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t block) {
-    // TODO: Remove this bounds check if the same check is removed from chunk_get_block.
-    if (x < 0 || x >= chunk_size || z < 0 || z >= chunk_size || y < 0 || y >= chunk_height) {
-        return;
-    }
-
     if (block != 0) {
         // TODO: Maybe make a heightmap_get_index function?
         int32_t *heightmap_current_min = chunk->heightmap_min + x + z * chunk_size;

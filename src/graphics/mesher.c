@@ -2,93 +2,95 @@
 
 #include <cglm/struct.h>
 
-const vec3 cube_vertices[6][4] = {
+const float cube_texture_size = 16.0f;
+
+const vec3s cube_vertices[6][4] = {
     // Forward
     {
-        {0, 0, 0},
-        {0, 1, 0},
-        {1, 1, 0},
-        {1, 0, 0},
+        {{0, 0, 0}},
+        {{0, 1, 0}},
+        {{1, 1, 0}},
+        {{1, 0, 0}},
     },
     // Backward
     {
-        {0, 0, 1},
-        {0, 1, 1},
-        {1, 1, 1},
-        {1, 0, 1},
+        {{0, 0, 1}},
+        {{0, 1, 1}},
+        {{1, 1, 1}},
+        {{1, 0, 1}},
     },
     // Right
     {
-        {1, 0, 0},
-        {1, 0, 1},
-        {1, 1, 1},
-        {1, 1, 0},
+        {{1, 0, 0}},
+        {{1, 0, 1}},
+        {{1, 1, 1}},
+        {{1, 1, 0}},
     },
     // Left
     {
-        {0, 0, 0},
-        {0, 0, 1},
-        {0, 1, 1},
-        {0, 1, 0},
+        {{0, 0, 0}},
+        {{0, 0, 1}},
+        {{0, 1, 1}},
+        {{0, 1, 0}},
     },
     // Up
     {
-        {0, 1, 0},
-        {0, 1, 1},
-        {1, 1, 1},
-        {1, 1, 0},
+        {{0, 1, 0}},
+        {{0, 1, 1}},
+        {{1, 1, 1}},
+        {{1, 1, 0}},
     },
     // Down
     {
-        {0, 0, 0},
-        {0, 0, 1},
-        {1, 0, 1},
-        {1, 0, 0},
+        {{0, 0, 0}},
+        {{0, 0, 1}},
+        {{1, 0, 1}},
+        {{1, 0, 0}},
     },
 };
 
-const vec2 cube_uvs[6][4] = {
+const vec2s cube_uvs[6][4] = {
     // Forward
     {
-        {1, 1},
-        {1, 0},
-        {0, 0},
-        {0, 1},
+        {{1, 1}},
+        {{1, 0}},
+        {{0, 0}},
+        {{0, 1}},
     },
     // Backward
     {
-        {0, 1},
-        {0, 0},
-        {1, 0},
-        {1, 1},
+        {{0, 1}},
+        {{0, 0}},
+        {{1, 0}},
+        {{1, 1}},
     },
     // Right
     {
-        {1, 1},
-        {0, 1},
-        {0, 0},
-        {1, 0},
+        {{1, 1}},
+        {{0, 1}},
+        {{0, 0}},
+        {{1, 0}},
     },
     // Left
     {
-        {0, 1},
-        {1, 1},
-        {1, 0},
-        {0, 0},
+        {{0, 1}},
+        {{1, 1}},
+        {{1, 0}},
+        {{0, 0}},
     },
     // Up
     {
-        {0, 1},
-        {0, 0},
-        {1, 0},
-        {1, 1},
+        {{0, 1}},
+        {{0, 0}},
+        {{1, 0}},
+        {{1, 1}},
     },
     // Down
     {
-        {0, 1},
-        {0, 0},
-        {1, 0},
-        {1, 1},
+        {{0, 1}},
+        {{0, 0}},
+        {{1, 0}},
+        {{1, 1}},
     },
 };
 
@@ -126,8 +128,10 @@ struct Mesher mesher_create() {
     };
 }
 
-struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk) {
-    const size_t vertex_component_count = 8;
+struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk,
+    int32_t texture_atlas_width, int32_t texture_atlas_height) {
+
+    const size_t vertex_component_count = 9;
 
     list_reset_float(&mesher->vertices);
     list_reset_uint32_t(&mesher->indices);
@@ -144,6 +148,8 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct
                 if (block == 0) {
                     continue;
                 }
+
+                float block_texture_index = block - 1;
 
                 // Finding the neighbors first is more cache efficient.
                 uint8_t neighbors[6];
@@ -171,9 +177,9 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct
 
                     for (size_t vertex_i = 0; vertex_i < 4; vertex_i++) {
                         // Position:
-                        float vertex_x = chunk->x + x + cube_vertices[side_i][vertex_i][0];
-                        float vertex_y = y + cube_vertices[side_i][vertex_i][1];
-                        float vertex_z = chunk->z + z + cube_vertices[side_i][vertex_i][2];
+                        float vertex_x = chunk->x + x + cube_vertices[side_i][vertex_i].x;
+                        float vertex_y = y + cube_vertices[side_i][vertex_i].y;
+                        float vertex_z = chunk->z + z + cube_vertices[side_i][vertex_i].z;
                         list_push_float(&mesher->vertices, vertex_x);
                         list_push_float(&mesher->vertices, vertex_y);
                         list_push_float(&mesher->vertices, vertex_z);
@@ -184,8 +190,11 @@ struct Mesh mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct
                         list_push_float(&mesher->vertices, side_shade);
 
                         // UV:
-                        list_push_float(&mesher->vertices, cube_uvs[side_i][vertex_i][0]);
-                        list_push_float(&mesher->vertices, cube_uvs[side_i][vertex_i][1]);
+                        float u = cube_uvs[side_i][vertex_i].u;
+                        float v = cube_uvs[side_i][vertex_i].v;
+                        list_push_float(&mesher->vertices, u);
+                        list_push_float(&mesher->vertices, v);
+                        list_push_float(&mesher->vertices, block_texture_index);
                     }
                 }
             }

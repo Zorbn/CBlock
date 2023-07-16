@@ -5,9 +5,9 @@ set(C_STANDARD 11)
 include(CTest)
 enable_testing()
 
-add_executable(
-    CBlock
-    
+set (
+    CBLOCK_SOURCE_FILES
+
     src/main.c
     src/list.h
     src/chunk.c src/chunk.h
@@ -15,9 +15,16 @@ add_executable(
     src/camera.c src/camera.h
     src/file.c src/file.h
     src/window.c src/window.h
-    src/graphics/mesher.c src/graphics/mesher.h
     src/graphics/mesh.c src/graphics/mesh.h
+    src/graphics/mesher.c src/graphics/mesher.h
     src/graphics/resources.c src/graphics/resources.h
+    src/graphics/sprite_batch.c src/graphics/sprite_batch.h
+)
+
+add_executable(
+    CBlock
+
+    ${CBLOCK_SOURCE_FILES}
     deps/glad/src/glad.c
 )
 target_include_directories(CBlock PRIVATE deps/glad/include deps/stb_image/include)
@@ -30,6 +37,10 @@ add_subdirectory(deps/glfw)
 add_subdirectory(deps/cglm)
 
 target_link_libraries(CBlock PRIVATE glfw cglm)
+
+if(NOT MSVC)
+    set_source_files_properties(${CBLOCK_SOURCE_FILES} PROPERTIES COMPILE_FLAGS -Wall -Werror -Wpedantic)
+endif()
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

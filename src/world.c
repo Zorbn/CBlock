@@ -21,14 +21,15 @@ struct World world_create() {
     return world;
 }
 
-void world_mesh_chunks(struct World *world) {
+void world_mesh_chunks(struct World *world, int32_t texture_atlas_width, int32_t texture_atlas_height) {
     for (size_t i = 0; i < world_length; i++) {
         if (!world->chunks[i].is_dirty) {
             continue;
         }
 
         mesh_destroy(&world->meshes[i]);
-        world->meshes[i] = mesher_mesh_chunk(&world->mesher, world, &world->chunks[i]);
+        world->meshes[i] =
+            mesher_mesh_chunk(&world->mesher, world, &world->chunks[i], texture_atlas_width, texture_atlas_height);
         world->chunks[i].is_dirty = false;
     }
 }
@@ -50,7 +51,7 @@ struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s directio
     start.z += 1e-4;
 
     vec3s tile_direction = glms_vec3_sign(direction);
-    vec3s step = glms_vec3_abs((vec3s){1.0f / direction.x, 1.0f / direction.y, 1.0f / direction.z});
+    vec3s step = glms_vec3_abs((vec3s){{1.0f / direction.x, 1.0f / direction.y, 1.0f / direction.z}});
     vec3s initial_step;
 
     if (direction.x > 0.0f) {
@@ -72,7 +73,7 @@ struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s directio
     }
 
     vec3s distance_to_next = initial_step;
-    ivec3s block_position = (ivec3s){floorf(start.x), floorf(start.y), floorf(start.z)};
+    ivec3s block_position = (ivec3s){{floorf(start.x), floorf(start.y), floorf(start.z)}};
     ivec3s last_block_position = block_position;
 
     float last_distance_to_next = 0.0f;
@@ -94,7 +95,7 @@ struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s directio
             distance_to_next.z += step.z;
             block_position.z += (int32_t)tile_direction.z;
         }
-    
+
         hit_block = world_get_block(world, block_position.x, block_position.y, block_position.z);
     }
 
@@ -106,52 +107,6 @@ struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s directio
     };
 }
 
-void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block) {
-    const size_t world_size_in_blocks = world_size * chunk_size;
-    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
-        return;
-    }
-
-    // TODO: Can this be chunk_i = chunk_get_index(x, y, z) / chunk_length?
-    // int32_t chunk_i = chunk_get_index(x, y, z) / chunk_length;
-    // int32_t block_i = chunk_get_index(x, y, z) % chunk_length;
-
-    int32_t chunk_x = x / chunk_size;
-    int32_t chunk_z = z / chunk_size;
-
-    int32_t chunk_i = chunk_x + chunk_z * world_size;
-
-    int32_t block_x = x % chunk_size;
-    int32_t block_y = y % chunk_height;
-    int32_t block_z = z % chunk_size;
-
-    chunk_set_block(&world->chunks[chunk_i], block_x, block_y, block_z, block);
-}
-
-uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z) {
-    const size_t world_size_in_blocks = world_size * chunk_size;
-    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
-        return 0;
-    }
-
-    // TODO: Can this be chunk_i = chunk_get_index(x, y, z) / chunk_length?
-    // int32_t chunk_i = chunk_get_index(x, y, z) / chunk_length;
-    // int32_t block_i = chunk_get_index(x, y, z) % chunk_length;
-
-    int32_t chunk_x = x / chunk_size;
-    int32_t chunk_z = z / chunk_size;
-
-    int32_t chunk_i = chunk_x + chunk_z * world_size;
-
-    int32_t block_x = x % chunk_size;
-    int32_t block_y = y % chunk_height;
-    int32_t block_z = z % chunk_size;
-
-    int32_t block_i = chunk_get_index(block_x, block_y, block_z);
-
-    return world->chunks[chunk_i].blocks[block_i];
-}
-
 void world_destroy(struct World *world) {
     for (size_t i = 0; i < world_length; i++) {
         chunk_destroy(&world->chunks[i]);
@@ -160,3 +115,6 @@ void world_destroy(struct World *world) {
 
     mesher_destroy(&world->mesher);
 }
+
+extern inline void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block);
+extern inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z);

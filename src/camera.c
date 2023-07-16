@@ -2,7 +2,7 @@
 
 struct Camera camera_create() {
     return (struct Camera){
-        .position = {0.0f, 0.0f, 0.0f},
+        .position = {{0.0f, 0.0f, 0.0f}},
         .rotation_x = 0.0f,
         .rotation_y = 0.0f,
     };
@@ -13,7 +13,7 @@ void camera_move(struct Camera *camera, struct Window *window, float delta_time)
         return;
     }
 
-    vec3s direction = {0.0f, 0.0f, 0.0f};
+    vec3s direction = {{0.0f, 0.0f, 0.0f}};
 
     if (glfwGetKey(window->glfw_window, GLFW_KEY_W) == GLFW_PRESS) {
         direction.z -= 1.0f;
@@ -43,7 +43,7 @@ void camera_move(struct Camera *camera, struct Window *window, float delta_time)
 
     const float camera_move_speed = 5.0f;
     float current_move_speed = delta_time * camera_move_speed;
-    
+
     vec3s forward_movement = glms_vec3_rotate(GLMS_ZUP, glm_rad(camera->rotation_y), GLMS_YUP);
     forward_movement = glms_vec3_scale(forward_movement, direction.z * current_move_speed);
     vec3s right_movement = glms_vec3_rotate(GLMS_ZUP, glm_rad(camera->rotation_y + 90.0f), GLMS_YUP);
@@ -67,7 +67,7 @@ void camera_rotate(struct Camera *camera, struct Window *window) {
     mat4s rotation_matrix_y = glms_rotate_y(glms_mat4_identity(), glm_rad(camera->rotation_y));
     mat4s rotation_matrix_x = glms_rotate_x(glms_mat4_identity(), glm_rad(camera->rotation_x));
 
-    vec3s look_vector = {0.0f, 0.0f, -1.0f};
+    vec3s look_vector = {{0.0f, 0.0f, -1.0f}};
     look_vector = glms_mat4_mulv3(rotation_matrix_x, look_vector, 1.0f);
     look_vector = glms_mat4_mulv3(rotation_matrix_y, look_vector, 1.0f);
     camera->look_vector = look_vector;
