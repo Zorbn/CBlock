@@ -6,7 +6,6 @@
 #include "chunk.h"
 #include "list.h"
 #include "graphics/mesh.h"
-#include "graphics/mesher.h"
 
 #include <cglm/struct.h>
 
@@ -55,8 +54,6 @@ LIST_DEFINE(struct_LightEventNode);
 
 struct World {
     struct Chunk *chunks;
-    struct Mesh *meshes;
-    struct Mesher mesher;
     struct List_struct_LightEventNode light_event_queue;
     struct List_struct_LightAddNode light_add_queue;
     struct List_struct_LightRemoveNode light_remove_queue;
@@ -73,7 +70,6 @@ struct RaycastHit {
 #define CHUNK_INDEX(chunk_x, chunk_z) ((chunk_x) + (chunk_z)*world_size)
 
 struct World world_create();
-void world_draw(struct World *world);
 void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z);
 void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z);
 void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z);

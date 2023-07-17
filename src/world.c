@@ -14,8 +14,6 @@ const size_t world_length = world_size * world_size;
 struct World world_create() {
     struct World world = (struct World){
         .chunks = malloc(world_length * sizeof(struct Chunk)),
-        .meshes = malloc(world_length * sizeof(struct Mesh)),
-        .mesher = mesher_create(),
         .light_event_queue = list_create_struct_LightEventNode(16),
         .light_add_queue = list_create_struct_LightAddNode(64),
         .light_remove_queue = list_create_struct_LightRemoveNode(64),
@@ -23,19 +21,13 @@ struct World world_create() {
     };
 
     assert(world.chunks);
-    assert(world.meshes);
+    assert(world.mutex);
 
     for (size_t i = 0; i < world_length; i++) {
         world.chunks[i] = chunk_create((i % world_size) * chunk_size, i / world_size * chunk_size);
     }
 
     return world;
-}
-
-void world_draw(struct World *world) {
-    for (size_t i = 0; i < world_length; i++) {
-        mesh_draw(&world->meshes[i]);
-    }
 }
 
 // Based on the Seed Of Andromeda lighting algorithm.
@@ -112,6 +104,9 @@ void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z) {
 }
 
 void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
+    // TODO: With the current method all chunk_set_light_level calls update the chunk's mesh,
+    // which means that every block touched by every light in this area will be considered updated.
+    // Change this so that only block that have a different light level after the update are considered updated.
     for (int32_t iz = z - MAX_LIGHT_LEVEL; iz <= z + MAX_LIGHT_LEVEL; iz++) {
         for (int32_t ix = x - MAX_LIGHT_LEVEL; ix <= x + MAX_LIGHT_LEVEL; ix++) {
             for (int32_t iy = y - MAX_LIGHT_LEVEL; iy <= y + MAX_LIGHT_LEVEL; iy++) {
@@ -300,17 +295,13 @@ void world_destroy(struct World *world) {
 
     for (size_t i = 0; i < world_length; i++) {
         chunk_destroy(&world->chunks[i]);
-        mesh_destroy(&world->meshes[i]);
     }
-
-    mesher_destroy(&world->mesher);
 
     list_destroy_struct_LightEventNode(&world->light_event_queue);
     list_destroy_struct_LightAddNode(&world->light_add_queue);
     list_destroy_struct_LightRemoveNode(&world->light_remove_queue);
 
     free(world->chunks);
-    free(world->meshes);
 }
 
 extern inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z);

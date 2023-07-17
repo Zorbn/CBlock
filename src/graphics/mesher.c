@@ -117,6 +117,7 @@ struct Mesher mesher_create() {
     return (struct Mesher){
         .vertices = list_create_float(4096),
         .indices = list_create_uint32_t(4096),
+        .processed_chunk_i = -1,
     };
 }
 

@@ -24,21 +24,20 @@
 
 #define BLOCK_TEXTURE_COUNT 3
 
-struct MeshingThreadInfo {
+const size_t mesher_count = 4;
+
+struct MeshingInfo {
     struct World *world;
-    _Atomic(int32_t) processed_chunk_i;
+    struct Mesh *meshes;
+    struct Mesher *meshers;
     _Atomic(bool) is_done;
     int32_t texture_atlas_width;
     int32_t texture_atlas_height;
 };
 
 DWORD WINAPI meshing_thread_start(void *start_info) {
-    struct MeshingThreadInfo *info = start_info;
+    struct MeshingInfo *info = start_info;
     while (!info->is_done) {
-        while (info->processed_chunk_i != -1) {
-            Sleep(0);
-        }
-
         WaitForSingleObject(info->world->mutex, INFINITE);
 
         // Process lighting updates:
@@ -65,30 +64,98 @@ DWORD WINAPI meshing_thread_start(void *start_info) {
                 continue;
             }
 
+            size_t available_mesher_i = -1;
+
+            for (size_t mesher_i = 0; mesher_i < mesher_count; mesher_i++) {
+                if (info->meshers[mesher_i].processed_chunk_i == -1) {
+                    available_mesher_i = mesher_i;
+                    break;
+                }
+            }
+
+            // No meshers are available right now.
+            if (available_mesher_i == -1) {
+                break;
+            }
+
             info->world->chunks[i].is_dirty = false;
 
-            // TODO: Once mesher is seperated from world, use several meshers instead of just one to allow for multiple meshes to be updated by the meshing thread at once.
-            mesher_mesh_chunk(&info->world->mesher, info->world, &info->world->chunks[i], info->texture_atlas_width,
-                info->texture_atlas_height);
-            info->processed_chunk_i = i;
-            break;
+            mesher_mesh_chunk(&info->meshers[available_mesher_i], info->world, &info->world->chunks[i],
+                info->texture_atlas_width, info->texture_atlas_height);
+            info->meshers[available_mesher_i].processed_chunk_i = i;
         }
 
         ReleaseMutex(info->world->mutex);
+
+        Sleep(0);
     }
 
     return 0;
 }
 
-void upload_processed_chunk(struct MeshingThreadInfo *info) {
-    int32_t processed_chunk_i = info->processed_chunk_i;
-    if (processed_chunk_i != -1) {
-        mesh_destroy(&info->world->meshes[processed_chunk_i]);
-        info->world->meshes[processed_chunk_i] =
-            mesh_create(info->world->mesher.vertices.data, info->world->mesher.vertices.length / vertex_component_count,
-                info->world->mesher.indices.data, info->world->mesher.indices.length);
-        info->processed_chunk_i = -1;
+struct MeshingInfo meshing_info_create(struct World *world, int32_t texture_atlas_width, int32_t texture_atlas_height) {
+    struct MeshingInfo info = (struct MeshingInfo){
+        .world = world,
+        .meshes = malloc(world_length * sizeof(struct Mesh)),
+        .meshers = malloc(mesher_count * sizeof(struct Mesher)),
+        .is_done = false,
+        .texture_atlas_width = texture_atlas_width,
+        .texture_atlas_height = texture_atlas_height,
+    };
+
+    assert(info.meshes);
+    assert(info.meshers);
+
+    for (size_t i = 0; i < mesher_count; i++) {
+        info.meshers[i] = mesher_create();
     }
+
+    return info;
+}
+
+void meshing_info_upload(struct MeshingInfo *info) {
+    // Try to lock the world mutex.
+    DWORD wait_result = WaitForSingleObject(info->world->mutex, 0);
+    if (wait_result != WAIT_OBJECT_0) {
+        return;
+    }
+
+    size_t upload_count = 0;
+    for (size_t i = 0; i < mesher_count; i++) {
+        int32_t processed_chunk_i = info->meshers[i].processed_chunk_i;
+        if (processed_chunk_i != -1) {
+            ++upload_count;
+            mesh_destroy(&info->meshes[processed_chunk_i]);
+            info->meshes[processed_chunk_i] =
+                mesh_create(info->meshers[i].vertices.data, info->meshers[i].vertices.length / vertex_component_count,
+                    info->meshers[i].indices.data, info->meshers[i].indices.length);
+            info->meshers[i].processed_chunk_i = -1;
+        }
+    }
+
+    if (upload_count != 0) {
+        printf("Uploaded %zu meshes\n", upload_count);
+    }
+
+    ReleaseMutex(info->world->mutex);
+}
+
+void meshing_info_draw(struct MeshingInfo *info) {
+    for (size_t i = 0; i < world_length; i++) {
+        mesh_draw(&info->meshes[i]);
+    }
+}
+
+void meshing_info_destroy(struct MeshingInfo *info) {
+    for (size_t i = 0; i < world_length; i++) {
+        mesh_destroy(&info->meshes[i]);
+    }
+
+    for (size_t i = 0; i < mesher_count; i++) {
+        mesher_destroy(&info->meshers[i]);
+    }
+
+    free(info->meshers);
 }
 
 int main() {
@@ -132,14 +199,8 @@ int main() {
     double last_time = glfwGetTime();
     float fps_print_timer = 0.0f;
 
-    struct MeshingThreadInfo meshing_thread_info = (struct MeshingThreadInfo){
-        .world = &world,
-        .processed_chunk_i = -1,
-        .is_done = false,
-        .texture_atlas_width = texture_atlas_3d.width,
-        .texture_atlas_height = texture_atlas_3d.height,
-    };
-    HANDLE meshing_thread = CreateThread(NULL, 0, meshing_thread_start, &meshing_thread_info, 0, NULL);
+    struct MeshingInfo meshing_info = meshing_info_create(&world, texture_atlas_3d.width, texture_atlas_3d.height);
+    HANDLE meshing_thread = CreateThread(NULL, 0, meshing_thread_start, &meshing_info, 0, NULL);
     assert(meshing_thread);
 
     while (!glfwWindowShouldClose(window.glfw_window)) {
@@ -171,7 +232,7 @@ int main() {
         camera_interact(&camera, &window.input, &world);
         view_matrix = camera_get_view_matrix(&camera);
 
-        upload_processed_chunk(&meshing_thread_info);
+        meshing_info_upload(&meshing_info);
 
         sprite_batch_begin(&sprite_batch);
         sprite_batch_add(&sprite_batch, (struct Sprite){
@@ -192,7 +253,7 @@ int main() {
         glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, (const float *)&view_matrix);
         glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix_3d);
         glBindTexture(GL_TEXTURE_2D_ARRAY, texture_atlas_3d.id);
-        world_draw(&world);
+        meshing_info_draw(&meshing_info);
 
         glUseProgram(program_2d);
         glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix_2d);
@@ -205,9 +266,10 @@ int main() {
         glfwPollEvents();
     }
 
-    meshing_thread_info.is_done = true;
+    meshing_info.is_done = true;
     WaitForSingleObject(meshing_thread, INFINITE);
     CloseHandle(meshing_thread);
+    meshing_info_destroy(&meshing_info);
 
     sprite_batch_destroy(&sprite_batch);
     world_destroy(&world);
