@@ -8,3 +8,5 @@ const ivec3s directions[6] = {
     {{0, 1, 0}},  // Up
     {{0, -1, 0}}, // Down
 };
+
+const size_t down = 5;

@@ -51,6 +51,11 @@ struct LightEventNode {
 typedef struct LightEventNode struct_LightEventNode;
 LIST_DEFINE(struct_LightEventNode);
 
+enum LightType {
+    LIGHT_TYPE_LIGHT,
+    LIGHT_TYPE_SUNLIGHT,
+};
+
 struct World {
     struct Chunk *chunks;
     struct List_struct_LightEventNode light_event_queue;
@@ -69,8 +74,8 @@ struct RaycastHit {
 #define CHUNK_INDEX(chunk_x, chunk_z) ((chunk_x) + (chunk_z)*world_size)
 
 struct World world_create();
-void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z);
-void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z);
+void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type);
+void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type);
 void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z);
 struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s direction, float range);
 bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size, vec3s origin);
@@ -86,7 +91,7 @@ inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_
     int32_t chunk_x = x / chunk_size;
     int32_t chunk_z = z / chunk_size;
 
-    int32_t chunk_i = chunk_x + chunk_z * world_size;
+    int32_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
 
     int32_t block_x = x % chunk_size;
     int32_t block_y = y % chunk_height;
@@ -95,7 +100,7 @@ inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_
     return chunk_get_block(&world->chunks[chunk_i], block_x, block_y, block_z);
 }
 
-inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t light_level) {
+inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t light_level, uint8_t mask, uint8_t offset) {
     const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return;
@@ -104,16 +109,16 @@ inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int
     int32_t chunk_x = x / chunk_size;
     int32_t chunk_z = z / chunk_size;
 
-    int32_t chunk_i = chunk_x + chunk_z * world_size;
+    int32_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
 
     int32_t block_x = x % chunk_size;
     int32_t block_y = y % chunk_height;
     int32_t block_z = z % chunk_size;
 
-    chunk_set_light_level(&world->chunks[chunk_i], block_x, block_y, block_z, light_level);
+    chunk_set_light_level(&world->chunks[chunk_i], block_x, block_y, block_z, light_level, mask, offset);
 }
 
-inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z) {
+inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset) {
     const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return 0;
@@ -122,13 +127,13 @@ inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, 
     int32_t chunk_x = x / chunk_size;
     int32_t chunk_z = z / chunk_size;
 
-    int32_t chunk_i = chunk_x + chunk_z * world_size;
+    int32_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
 
     int32_t block_x = x % chunk_size;
     int32_t block_y = y % chunk_height;
     int32_t block_z = z % chunk_size;
 
-    return chunk_get_light_level(&world->chunks[chunk_i], block_x, block_y, block_z);
+    return chunk_get_light_level(&world->chunks[chunk_i], block_x, block_y, block_z, mask, offset);
 }
 
 #endif

@@ -152,7 +152,9 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
                     int32_t neighbor_y = y + directions[side_i].y;
                     int32_t neighbor_z = chunk->z + z + directions[side_i].z;
                     neighbors[side_i] = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
-                    neighbor_light_levels[side_i] = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z);
+                    uint8_t sunlight_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, sunlight_mask, sunlight_offset);
+                    uint8_t light_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, light_mask, light_offset);
+                    neighbor_light_levels[side_i] = GLM_MAX(sunlight_level, light_level);
                 }
 
                 for (size_t side_i = 0; side_i < 6; side_i++) {

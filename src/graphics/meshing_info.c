@@ -17,21 +17,22 @@ DWORD WINAPI meshing_thread_start(void *start_info) {
             struct LightEventNode light_event_node =
                 list_dequeue_struct_LightEventNode(&info->world->light_event_queue);
 
-            meshing_info_cache_light_levels(info, &light_event_node);
+            // TODO:
+            // meshing_info_cache_light_levels(info, &light_event_node);
 
             switch (light_event_node.event_type) {
                 case LIGHT_EVENT_TYPE_ADD:
-                    world_light_add(info->world, light_event_node.x, light_event_node.y, light_event_node.z);
+                    world_light_add(info->world, light_event_node.x, light_event_node.y, light_event_node.z, light_mask, light_offset, LIGHT_TYPE_LIGHT);
                     break;
                 case LIGHT_EVENT_TYPE_REMOVE:
-                    world_light_remove(info->world, light_event_node.x, light_event_node.y, light_event_node.z);
+                    world_light_remove(info->world, light_event_node.x, light_event_node.y, light_event_node.z, light_mask, light_offset, LIGHT_TYPE_LIGHT);
                     break;
                 case LIGHT_EVENT_TYPE_UPDATE:
                     world_light_update(info->world, light_event_node.x, light_event_node.y, light_event_node.z);
                     break;
             }
 
-            meshing_info_mark_dirty_chunks(info, &light_event_node);
+            // meshing_info_mark_dirty_chunks(info, &light_event_node);
         }
 
         // Process meshing updates:
@@ -137,7 +138,7 @@ void meshing_info_cache_light_levels(struct MeshingInfo *info, struct LightEvent
                 int32_t world_y = y + light_event_node->y;
                 int32_t cache_y = y + MAX_LIGHT_LEVEL;
 
-                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z);
+                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, light_mask, light_offset);
                 size_t cache_i = LIGHT_LEVEL_CACHE_INDEX(cache_x, cache_y, cache_z);
                 info->light_level_cache[cache_i] = light_level;
             }
@@ -156,7 +157,7 @@ void meshing_info_mark_dirty_chunks(struct MeshingInfo *info, struct LightEventN
                 int32_t world_y = y + light_event_node->y;
                 int32_t cache_y = y + MAX_LIGHT_LEVEL;
 
-                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z);
+                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, light_mask, light_offset);
                 size_t cache_i = LIGHT_LEVEL_CACHE_INDEX(cache_x, cache_y, cache_z);
                 uint8_t cached_light_level = info->light_level_cache[cache_i];
 
