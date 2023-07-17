@@ -1,4 +1,5 @@
 #include "mesher.h"
+#include "../directions.h"
 
 #include <cglm/struct.h>
 
@@ -112,15 +113,6 @@ const float cube_shades[6] = {
     0.875f, // Down
 };
 
-const int32_t directions[6][3] = {
-    {0, 0, -1}, // Forward
-    {0, 0, 1},  // Backward
-    {1, 0, 0},  // Right
-    {-1, 0, 0}, // Left
-    {0, 1, 0},  // Up
-    {0, -1, 0}, // Down
-};
-
 struct Mesher mesher_create() {
     return (struct Mesher){
         .vertices = list_create_float(4096),
@@ -133,6 +125,9 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
 
     list_reset_float(&mesher->vertices);
     list_reset_uint32_t(&mesher->indices);
+
+    uint8_t neighbors[6];
+    uint8_t neighbor_light_levels[6];
 
     for (int32_t z = 0; z < chunk_size; z++) {
         int32_t world_z = z + chunk->z;
@@ -151,12 +146,12 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
                 float block_texture_index = block - 1;
 
                 // Finding the neighbors first is more cache efficient.
-                uint8_t neighbors[6];
                 for (size_t side_i = 0; side_i < 6; side_i++) {
-                    int32_t neighbor_x = chunk->x + x + directions[side_i][0];
-                    int32_t neighbor_y = y + directions[side_i][1];
-                    int32_t neighbor_z = chunk->z + z + directions[side_i][2];
+                    int32_t neighbor_x = chunk->x + x + directions[side_i].x;
+                    int32_t neighbor_y = y + directions[side_i].y;
+                    int32_t neighbor_z = chunk->z + z + directions[side_i].z;
                     neighbors[side_i] = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
+                    neighbor_light_levels[side_i] = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z);
                 }
 
                 for (size_t side_i = 0; side_i < 6; side_i++) {
@@ -172,7 +167,7 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
                         list_push_uint32_t(&mesher->indices, index);
                     }
 
-                    float side_shade = cube_shades[side_i];
+                    float side_shade = cube_shades[side_i] * neighbor_light_levels[side_i] * inv_light_level_count;
 
                     for (size_t vertex_i = 0; vertex_i < 4; vertex_i++) {
                         // Position:

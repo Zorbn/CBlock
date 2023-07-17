@@ -1,10 +1,14 @@
 #include "world.h"
+#include "directions.h"
 
 #include <stdlib.h>
 #include <inttypes.h>
 #include <math.h>
 
-const size_t world_size = 4;
+// TODO: block "3" is currently a stand-in for all lights.
+#define LIGHT_BLOCK 3
+
+const size_t world_size = 2;
 const size_t world_length = world_size * world_size;
 
 struct World world_create() {
@@ -12,6 +16,10 @@ struct World world_create() {
         .chunks = malloc(world_length * sizeof(struct Chunk)),
         .meshes = malloc(world_length * sizeof(struct Mesh)),
         .mesher = mesher_create(),
+        .light_event_queue = list_create_struct_LightEventNode(16),
+        .light_add_queue = list_create_struct_LightAddNode(64),
+        .light_remove_queue = list_create_struct_LightRemoveNode(64),
+        .mutex = CreateMutex(NULL, FALSE, NULL),
     };
 
     assert(world.chunks);
@@ -27,6 +35,92 @@ struct World world_create() {
 void world_draw(struct World *world) {
     for (size_t i = 0; i < world_length; i++) {
         mesh_draw(&world->meshes[i]);
+    }
+}
+
+// Based on the Seed Of Andromeda lighting algorithm.
+void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z) {
+    world_set_light_level(world, x, y, z, MAX_LIGHT_LEVEL);
+
+    list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
+                                                            .x = x,
+                                                            .y = y,
+                                                            .z = z,
+                                                        });
+    while (world->light_add_queue.length > 0) {
+        struct LightAddNode light_add_node = list_dequeue_struct_LightAddNode(&world->light_add_queue);
+        uint8_t light_level = world_get_light_level(world, light_add_node.x, light_add_node.y, light_add_node.z);
+
+        for (size_t side_i = 0; side_i < 6; side_i++) {
+            int32_t neighbor_x = light_add_node.x + directions[side_i].x;
+            int32_t neighbor_y = light_add_node.y + directions[side_i].y;
+            int32_t neighbor_z = light_add_node.z + directions[side_i].z;
+            uint8_t neighbor_block = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
+            uint8_t neighbor_light_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z);
+
+            if ((neighbor_block == 0 || neighbor_block == LIGHT_BLOCK) && neighbor_light_level + 1 < light_level) {
+                world_set_light_level(world, neighbor_x, neighbor_y, neighbor_z, light_level - 1);
+                list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
+                                                                        .x = neighbor_x,
+                                                                        .y = neighbor_y,
+                                                                        .z = neighbor_z,
+                                                                    });
+            }
+        }
+    }
+}
+
+void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z) {
+    uint8_t previous_light_level = world_get_light_level(world, x, y, z);
+    list_push_struct_LightRemoveNode(&world->light_remove_queue, (struct LightRemoveNode){
+                                                                      .x = x,
+                                                                      .y = y,
+                                                                      .z = z,
+                                                                      .light_level = previous_light_level,
+                                                                  });
+
+    world_set_light_level(world, x, y, z, 0);
+
+    while (world->light_remove_queue.length > 0) {
+        struct LightRemoveNode light_remove_node = list_dequeue_struct_LightRemoveNode(&world->light_remove_queue);
+
+        for (size_t side_i = 0; side_i < 6; side_i++) {
+            int32_t neighbor_x = light_remove_node.x + directions[side_i].x;
+            int32_t neighbor_y = light_remove_node.y + directions[side_i].y;
+            int32_t neighbor_z = light_remove_node.z + directions[side_i].z;
+            uint8_t neighbor_light_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z);
+
+            if (neighbor_light_level != 0 && neighbor_light_level < light_remove_node.light_level) {
+                // Get rid of outdated light values.
+                world_set_light_level(world, neighbor_x, neighbor_y, neighbor_z, 0);
+                list_push_struct_LightRemoveNode(&world->light_remove_queue, (struct LightRemoveNode){
+                                                                                  .x = neighbor_x,
+                                                                                  .y = neighbor_y,
+                                                                                  .z = neighbor_z,
+                                                                                  .light_level = neighbor_light_level,
+                                                                              });
+            } else if (neighbor_light_level >= light_remove_node.light_level) {
+                // Repopulate the light map based on valid neighboring light values.
+                list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
+                                                                        .x = neighbor_x,
+                                                                        .y = neighbor_y,
+                                                                        .z = neighbor_z,
+                                                                    });
+            }
+        }
+    }
+}
+
+void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
+    for (int32_t iz = z - MAX_LIGHT_LEVEL; iz <= z + MAX_LIGHT_LEVEL; iz++) {
+        for (int32_t ix = x - MAX_LIGHT_LEVEL; ix <= x + MAX_LIGHT_LEVEL; ix++) {
+            for (int32_t iy = y - MAX_LIGHT_LEVEL; iy <= y + MAX_LIGHT_LEVEL; iy++) {
+                if (world_get_block(world, ix, iy, iz) == LIGHT_BLOCK) {
+                    world_light_remove(world, ix, iy, iz);
+                    world_light_add(world, ix, iy, iz);
+                }
+            }
+        }
     }
 }
 
@@ -137,7 +231,73 @@ bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size
     return false;
 }
 
+void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block) {
+    const size_t world_size_in_blocks = world_size * chunk_size;
+    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
+        return;
+    }
+
+    WaitForSingleObject(world->mutex, INFINITE);
+
+    int32_t chunk_x = x / chunk_size;
+    int32_t chunk_z = z / chunk_size;
+
+    int32_t chunk_i = chunk_x + chunk_z * world_size;
+
+    int32_t block_x = x % chunk_size;
+    int32_t block_y = y % chunk_height;
+    int32_t block_z = z % chunk_size;
+
+    // If the old block was a light block then it's light needs to be removed.
+    if (world_get_block(world, x, y, z) == LIGHT_BLOCK) {
+        list_push_struct_LightEventNode(&world->light_event_queue, (struct LightEventNode){
+                                                                       .x = x,
+                                                                       .y = y,
+                                                                       .z = z,
+                                                                       .event_type = LIGHT_EVENT_TYPE_REMOVE,
+                                                                   });
+    }
+
+    chunk_set_block(&world->chunks[chunk_i], block_x, block_y, block_z, block);
+    list_push_struct_LightEventNode(&world->light_event_queue, (struct LightEventNode){
+                                                                   .x = x,
+                                                                   .y = y,
+                                                                   .z = z,
+                                                                   .event_type = LIGHT_EVENT_TYPE_UPDATE,
+                                                               });
+
+    // If the old block is a light block then it's light needs to be added.
+    if (block == LIGHT_BLOCK) {
+        list_push_struct_LightEventNode(&world->light_event_queue, (struct LightEventNode){
+                                                                       .x = x,
+                                                                       .y = y,
+                                                                       .z = z,
+                                                                       .event_type = LIGHT_EVENT_TYPE_ADD,
+                                                                   });
+    }
+
+    if (block_x == 0 && chunk_x > 0) {
+        world->chunks[CHUNK_INDEX(chunk_x - 1, chunk_z)].is_dirty = true;
+    }
+
+    if (block_x == chunk_size - 1 && chunk_x < world_size - 1) {
+        world->chunks[CHUNK_INDEX(chunk_x + 1, chunk_z)].is_dirty = true;
+    }
+
+    if (block_z == 0 && chunk_z > 0) {
+        world->chunks[CHUNK_INDEX(chunk_x, chunk_z - 1)].is_dirty = true;
+    }
+
+    if (block_z == chunk_size - 1 && chunk_z < world_size - 1) {
+        world->chunks[CHUNK_INDEX(chunk_x, chunk_z + 1)].is_dirty = true;
+    }
+
+    ReleaseMutex(world->mutex);
+}
+
 void world_destroy(struct World *world) {
+    CloseHandle(world->mutex);
+
     for (size_t i = 0; i < world_length; i++) {
         chunk_destroy(&world->chunks[i]);
         mesh_destroy(&world->meshes[i]);
@@ -145,9 +305,14 @@ void world_destroy(struct World *world) {
 
     mesher_destroy(&world->mesher);
 
+    list_destroy_struct_LightEventNode(&world->light_event_queue);
+    list_destroy_struct_LightAddNode(&world->light_add_queue);
+    list_destroy_struct_LightRemoveNode(&world->light_remove_queue);
+
     free(world->chunks);
     free(world->meshes);
 }
 
-extern inline void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block);
 extern inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z);
+extern inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t light_level);
+extern inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z);

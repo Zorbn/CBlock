@@ -10,6 +10,7 @@
 // TODO: Remove mesher from world, replace with mesher_mesh_world, making these foward declarations unnecessary.
 struct World;
 uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z);
+uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z);
 
 struct Mesher {
     struct List_float vertices;

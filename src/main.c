@@ -22,7 +22,7 @@
 #include <windows.h>
 #include <stdatomic.h>
 
-#define BLOCK_TEXTURE_COUNT 2
+#define BLOCK_TEXTURE_COUNT 3
 
 struct MeshingThreadInfo {
     struct World *world;
@@ -39,6 +39,27 @@ DWORD WINAPI meshing_thread_start(void *start_info) {
             Sleep(0);
         }
 
+        WaitForSingleObject(info->world->mutex, INFINITE);
+
+        // Process lighting updates:
+        while (info->world->light_event_queue.length > 0) {
+            struct LightEventNode light_event_node =
+                list_dequeue_struct_LightEventNode(&info->world->light_event_queue);
+
+            switch (light_event_node.event_type) {
+                case LIGHT_EVENT_TYPE_ADD:
+                    world_light_add(info->world, light_event_node.x, light_event_node.y, light_event_node.z);
+                    break;
+                case LIGHT_EVENT_TYPE_REMOVE:
+                    world_light_remove(info->world, light_event_node.x, light_event_node.y, light_event_node.z);
+                    break;
+                case LIGHT_EVENT_TYPE_UPDATE:
+                    world_light_update(info->world, light_event_node.x, light_event_node.y, light_event_node.z);
+                    break;
+            }
+        }
+
+        // Process meshing updates:
         for (int32_t i = 0; i < world_length; i++) {
             if (!info->world->chunks[i].is_dirty) {
                 continue;
@@ -46,14 +67,14 @@ DWORD WINAPI meshing_thread_start(void *start_info) {
 
             info->world->chunks[i].is_dirty = false;
 
-            // double start_chunk_mesh = glfwGetTime();
+            // TODO: Once mesher is seperated from world, use several meshers instead of just one to allow for multiple meshes to be updated by the meshing thread at once.
             mesher_mesh_chunk(&info->world->mesher, info->world, &info->world->chunks[i], info->texture_atlas_width,
                 info->texture_atlas_height);
-            // double end_chunk_mesh = glfwGetTime();
-            // printf("Chunk meshed in %fs\n", end_chunk_mesh - start_chunk_mesh);
             info->processed_chunk_i = i;
             break;
         }
+
+        ReleaseMutex(info->world->mutex);
     }
 
     return 0;
@@ -83,6 +104,7 @@ int main() {
     char *block_texture_paths[BLOCK_TEXTURE_COUNT] = {
         "assets/block_textures/dirt.png",
         "assets/block_textures/grass.png",
+        "assets/block_textures/light.png",
     };
     // TODO: Add texture_bind and texture_destroy
     struct TextureArray texture_atlas_3d = texture_array_create(block_texture_paths, BLOCK_TEXTURE_COUNT, 16, 16);
@@ -185,6 +207,7 @@ int main() {
 
     meshing_thread_info.is_done = true;
     WaitForSingleObject(meshing_thread, INFINITE);
+    CloseHandle(meshing_thread);
 
     sprite_batch_destroy(&sprite_batch);
     world_destroy(&world);

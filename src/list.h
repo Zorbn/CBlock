@@ -42,12 +42,35 @@
         ++list->length;                                                                                                \
     }                                                                                                                  \
                                                                                                                        \
+    inline type list_dequeue_##type(struct List_##type *list) {                                                        \
+        assert(list->length > 0);                                                                                      \
+                                                                                                                       \
+        type value = list->data[0];                                                                                    \
+                                                                                                                       \
+        for (size_t i = 0; i < list->length - 1; i++) {                                                                \
+            list->data[i] = list->data[i + 1];                                                                         \
+        }                                                                                                              \
+                                                                                                                       \
+        --list->length;                                                                                                \
+        return value;                                                                                                  \
+    }                                                                                                                  \
+                                                                                                                       \
     inline void list_destroy_##type(struct List_##type *list) {                                                        \
         free(list->data);                                                                                              \
     }
 
+// TODO: Should memmove be used for dequeue?
+
 LIST_DEFINE(float)
 LIST_DEFINE(uint32_t)
 LIST_DEFINE(int32_t)
+
+// TODO:
+// inline type list_pop_##type(struct List_##type *list) {
+//     assert(list->length > 0);
+//
+//     --list->length;
+//     return list->data[list->length];
+// }
 
 #endif

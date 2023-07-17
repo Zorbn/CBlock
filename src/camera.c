@@ -8,7 +8,7 @@ struct Camera camera_create() {
     };
 }
 
-void camera_move(struct Camera *camera, struct Window *window, struct World* world, float delta_time) {
+void camera_move(struct Camera *camera, struct Window *window, struct World *world, float delta_time) {
     if (!window->is_mouse_locked) {
         return;
     }
@@ -102,13 +102,24 @@ void camera_interact(struct Camera *camera, struct Input *input, struct World *w
         struct RaycastHit hit = world_raycast(world, camera->position, camera->look_vector, 10.0f);
 
         if (hit.block != 0) {
-            world_set_block(world, hit.position.x, hit.position.y, hit.position.z, 0);
+            double start_update_lights = glfwGetTime();
+            for (size_t i = 0; i < 100; i++) {
+                world_set_block(world, hit.position.x, hit.position.y, hit.position.z, 0);
+            }
+            double end_update_lights = glfwGetTime();
+            printf("Light updated in %fs\n", end_update_lights - start_update_lights);
         }
     } else if (input_is_button_pressed(input, GLFW_MOUSE_BUTTON_RIGHT)) {
         struct RaycastHit hit = world_raycast(world, camera->position, camera->look_vector, 10.0f);
 
         if (hit.block != 0) {
             world_set_block(world, hit.last_position.x, hit.last_position.y, hit.last_position.z, 1);
+        }
+    } else if (input_is_button_pressed(input, GLFW_MOUSE_BUTTON_MIDDLE)) {
+        struct RaycastHit hit = world_raycast(world, camera->position, camera->look_vector, 10.0f);
+
+        if (hit.block != 0) {
+            world_set_block(world, hit.last_position.x, hit.last_position.y, hit.last_position.z, 3);
         }
     }
 }
