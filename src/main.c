@@ -29,8 +29,8 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
-    uint32_t program_3d = program_create("shader_3d.vert", "shader_3d.frag");
-    uint32_t program_2d = program_create("shader_2d.vert", "shader_2d.frag");
+    uint32_t program_3d = program_create("assets/shader_3d.vert", "assets/shader_3d.frag");
+    uint32_t program_2d = program_create("assets/shader_2d.vert", "assets/shader_2d.frag");
 
     char *block_texture_paths[BLOCK_TEXTURE_COUNT] = {
         "assets/block_textures/dirt.png",
