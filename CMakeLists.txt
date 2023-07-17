@@ -10,17 +10,18 @@ set (
 
     src/main.c
     src/list.h
+    src/file.c src/file.h
     src/input.c src/input.h
     src/chunk.c src/chunk.h
     src/world.c src/world.h
     src/camera.c src/camera.h
-    src/file.c src/file.h
     src/window.c src/window.h
     src/directions.c src/directions.h
     src/graphics/mesh.c src/graphics/mesh.h
     src/graphics/mesher.c src/graphics/mesher.h
     src/graphics/resources.c src/graphics/resources.h
     src/graphics/sprite_batch.c src/graphics/sprite_batch.h
+    src/graphics/meshing_info.c src/graphics/meshing_info.h
 )
 
 add_executable(

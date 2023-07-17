@@ -5,7 +5,6 @@
 
 #include "chunk.h"
 #include "list.h"
-#include "graphics/mesh.h"
 
 #include <cglm/struct.h>
 
