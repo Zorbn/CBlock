@@ -42,7 +42,6 @@ inline uint8_t chunk_get_light_level(struct Chunk *chunk, int32_t x, int32_t y, 
 inline void chunk_set_light_level(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t light_level) {
     size_t i = BLOCK_INDEX(x, y, z);
     chunk->lightmap[i] = light_level;
-    chunk->is_dirty = true;
 }
 
 #endif

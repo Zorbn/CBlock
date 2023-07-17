@@ -49,6 +49,10 @@ void mesh_draw(struct Mesh *mesh) {
 }
 
 void mesh_destroy(struct Mesh *mesh) {
+    if (mesh->index_count == 0) {
+        return;
+    }
+
     glDeleteBuffers(1, &mesh->vbo);
     glDeleteBuffers(1, &mesh->ebo);
     glDeleteVertexArrays(1, &mesh->vao);
