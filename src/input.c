@@ -31,9 +31,7 @@ void input_update_button(struct Input *input, int32_t button, int32_t action) {
                     continue;
                 }
 
-                // TODO: Add list_remove_unordered_(type) that does this for any list.
-                input->held_buttons.data[i] = input->held_buttons.data[input->held_buttons.length - 1];
-                --input->held_buttons.length;
+                list_remove_unordered_int32_t(&input->held_buttons, i);
 
                 break;
             }

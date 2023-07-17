@@ -8,7 +8,7 @@
 // TODO: block "3" is currently a stand-in for all lights.
 #define LIGHT_BLOCK 3
 
-const size_t world_size = 2;
+const size_t world_size = 4;
 const size_t world_length = world_size * world_size;
 
 struct World world_create() {
@@ -104,9 +104,6 @@ void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z) {
 }
 
 void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
-    // TODO: With the current method all chunk_set_light_level calls update the chunk's mesh,
-    // which means that every block touched by every light in this area will be considered updated.
-    // Change this so that only block that have a different light level after the update are considered updated.
     for (int32_t iz = z - MAX_LIGHT_LEVEL; iz <= z + MAX_LIGHT_LEVEL; iz++) {
         for (int32_t ix = x - MAX_LIGHT_LEVEL; ix <= x + MAX_LIGHT_LEVEL; ix++) {
             for (int32_t iy = y - MAX_LIGHT_LEVEL; iy <= y + MAX_LIGHT_LEVEL; iy++) {

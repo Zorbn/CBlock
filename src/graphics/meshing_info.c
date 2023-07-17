@@ -1,6 +1,8 @@
 #include "meshing_info.h"
 
-const size_t mesher_count = 4;
+// 6 seems like the maximum reasonable number of chunks updates, ie: from placing a light that then lights several
+// neighboring chunks. With 6 meshers that entire update could be processed in a single batch.
+const size_t mesher_count = 6;
 const size_t light_update_size = MAX_LIGHT_LEVEL * 2 + 1;
 
 #define LIGHT_LEVEL_CACHE_INDEX(x, y, z) ((y) + (x)*light_update_size + (z)*light_update_size * light_update_size)
