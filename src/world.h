@@ -118,7 +118,13 @@ inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int
 }
 
 inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset) {
-    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
+    if (y >= chunk_height) {
+        // Pretend that above the map their is maximum sunlight and no other light.
+        // sunlight_mask >> sunlight_offset = MAX_LIGHT_LEVEL, light_mask >> sunlight_offset = 0
+        return mask >> sunlight_offset;
+    }
+
+    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0) {
         return 0;
     }
 

@@ -166,7 +166,6 @@ void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
             // greater than the heightmap max, while also being low enough to not waste resources on lighting
             // empty space. Move up by one block to make sure we start in the sky, since heightmap_max is the location
             // of the highest block, and if this update is due to placing a block then y will also be inside the ground.
-            // TODO: Placing a block at the maximum y level casts shadows strangely.
             int32_t sun_y = GLM_MAX(y, heightmap_max) + 1;
 
             world_light_remove(world, ix, sun_y, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
