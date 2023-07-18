@@ -55,11 +55,10 @@ struct World world_create() {
     return world;
 }
 
-// TODO: Sunlight currently always propogates down without reducing it's light_level even after hitting a block.
-
 // Based on the Seed Of Andromeda lighting algorithm.
 void world_light_add(
     struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
+
     world_set_light_level(world, x, y, z, MAX_LIGHT_LEVEL, mask, offset);
 
     list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
@@ -87,7 +86,8 @@ void world_light_add(
             bool should_continue =
                 (sunlight_down && neighbor_light_level < light_level) || (neighbor_light_level + 1 < light_level);
             if ((neighbor_block == 0 || neighbor_block == LIGHT_BLOCK) && should_continue) {
-                uint8_t new_light_level = sunlight_down ? light_level : light_level - 1;
+                bool preserve_light_level = sunlight_down && light_level == MAX_LIGHT_LEVEL;
+                uint8_t new_light_level = preserve_light_level ? light_level : light_level - 1;
                 world_set_light_level(world, neighbor_x, neighbor_y, neighbor_z, new_light_level, mask, offset);
                 list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
                                                                            .x = neighbor_x,
@@ -101,6 +101,7 @@ void world_light_add(
 
 void world_light_remove(
     struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
+
     uint8_t previous_light_level = world_get_light_level(world, x, y, z, mask, offset);
     list_push_struct_LightRemoveNode(&world->light_remove_queue, (struct LightRemoveNode){
                                                                      .x = x,
@@ -114,8 +115,7 @@ void world_light_remove(
     while (world->light_remove_queue.length > 0) {
         struct LightRemoveNode light_remove_node = list_dequeue_struct_LightRemoveNode(&world->light_remove_queue);
 
-        // for (int32_t side_i = down; side_i >= 0; side_i--) {
-        for (int32_t side_i = 0; side_i < 6; side_i++) {
+        for (int32_t side_i = down; side_i >= 0; side_i--) {
             int32_t neighbor_x = light_remove_node.x + directions[side_i].x;
             int32_t neighbor_y = light_remove_node.y + directions[side_i].y;
             int32_t neighbor_z = light_remove_node.z + directions[side_i].z;
@@ -146,6 +146,10 @@ void world_light_remove(
 }
 
 void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
+    size_t update_chunk_i = CHUNK_INDEX(x / CHUNK_SIZE, z / CHUNK_SIZE);
+    size_t update_heightmap_i = HEIGHTMAP_INDEX(x % CHUNK_SIZE, z % CHUNK_SIZE);
+    int32_t update_heightmap_max = world->chunks[update_chunk_i].heightmap_max[update_heightmap_i];
+
     for (int32_t iz = z - MAX_LIGHT_LEVEL; iz <= z + MAX_LIGHT_LEVEL; iz++) {
         for (int32_t ix = x - MAX_LIGHT_LEVEL; ix <= x + MAX_LIGHT_LEVEL; ix++) {
             if (ix < 0 || ix >= world_size_in_blocks || iz < 0 || iz >= world_size_in_blocks) {
@@ -162,11 +166,10 @@ void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
             // for this xz position, where the sky and the ground meet. However, this will cause problems when
             // the heightmap for a neighboring xz position is below the y level of this lighting update, since
             // starting at the heightmap height will only cast light below the updated location, missing it.
-            // In that case, start casting light from the current y position, which is in the sky if it is
-            // greater than the heightmap max, while also being low enough to not waste resources on lighting
-            // empty space. Move up by one block to make sure we start in the sky, since heightmap_max is the location
-            // of the highest block, and if this update is due to placing a block then y will also be inside the ground.
-            int32_t sun_y = GLM_MAX(y, heightmap_max) + 1;
+            // In that case, start casting light from the heightmap height of the update's xz position.
+            // Move up by one block to make sure we start in the sky, since heightmap_max is the
+            // location of the highest block, so starting their would be starting one block underground.
+            int32_t sun_y = GLM_MAX(update_heightmap_max, heightmap_max) + 1;
 
             world_light_remove(world, ix, sun_y, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
             world_light_add(world, ix, sun_y, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);

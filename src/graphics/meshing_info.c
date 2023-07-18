@@ -129,8 +129,6 @@ void meshing_info_draw(struct MeshingInfo *info) {
 }
 
 void meshing_info_cache_light_levels(struct MeshingInfo *info, struct LightEventNode *light_event_node) {
-    // TODO: Is light_event_node's y component still necessary?
-
     for (int32_t z = -MAX_LIGHT_LEVEL; z <= MAX_LIGHT_LEVEL; z++) {
         int32_t world_z = z + light_event_node->z;
         int32_t cache_z = z + MAX_LIGHT_LEVEL;
@@ -152,7 +150,7 @@ void meshing_info_cache_light_levels(struct MeshingInfo *info, struct LightEvent
                 int32_t cache_y = world_y - y_min;
 
                 // TODO: Take both sunlight and normal light into account. (Cache same same light value used in the mesher for drawing the blocks, only visual changes matter)
-                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, sunlight_mask, sunlight_offset);
+                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, 0xff, 0);
                 size_t cache_i = LIGHT_LEVEL_CACHE_INDEX(cache_x, cache_y, cache_z);
                 info->light_level_cache[cache_i] = light_level;
             }
@@ -181,7 +179,7 @@ void meshing_info_mark_dirty_chunks(struct MeshingInfo *info, struct LightEventN
             for (int32_t world_y = y_min; world_y <= y_max; world_y++) {
                 int32_t cache_y = world_y - y_min;
 
-                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, sunlight_mask, sunlight_offset);
+                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, 0xff, 0);
                 size_t cache_i = LIGHT_LEVEL_CACHE_INDEX(cache_x, cache_y, cache_z);
                 uint8_t cached_light_level = info->light_level_cache[cache_i];
 
