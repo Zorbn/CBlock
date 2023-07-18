@@ -181,24 +181,18 @@ void world_update_lighting(struct World *world, int32_t source_x, int32_t source
 
                 if (neighbor_x >= 0 && neighbor_x < world_size_in_blocks && neighbor_y >= 0 &&
                     neighbor_y < chunk_height && neighbor_z >= 0 && neighbor_z < world_size_in_blocks) {
-                    uint8_t neighbor_block = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
                     uint8_t neighbor_sunlight_level = world_get_light_level(
                         world, neighbor_x, neighbor_y, neighbor_z, sunlight_mask, sunlight_offset);
-                    // TODO: Is it necessary to check for != 0 blocks? Or can it be assumed that their light level will
-                    // be 0?
-                    bool is_neighbor_transparent = neighbor_block == 0 || neighbor_block == LIGHT_BLOCK;
-                    new_sunlight =
-                        GLM_MAX(is_neighbor_transparent ? GLM_MAX(neighbor_sunlight_level - 1, 0) : 0, new_sunlight);
+                    new_sunlight = GLM_MAX(GLM_MAX(neighbor_sunlight_level - 1, 0), new_sunlight);
                     uint8_t neighbor_light_level =
                         world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, light_mask, light_offset);
-                    new_light = GLM_MAX(is_neighbor_transparent ? GLM_MAX(neighbor_light_level - 1, 0) : 0, new_light);
+                    new_light = GLM_MAX(GLM_MAX(neighbor_light_level - 1, 0), new_light);
                 }
             }
         }
 
         bool is_light_different = (old_light != new_light) || (old_sunlight != new_sunlight);
-        if (is_light_different /* TODO: Is this necessary? -> */ ||
-            (source_x == current.x && source_y == current.y && source_z == current.z)) {
+        if (is_light_different) {
             world_set_light_level(world, current.x, current.y, current.z, new_sunlight, sunlight_mask, sunlight_offset);
             world_set_light_level(world, current.x, current.y, current.z, new_light, light_mask, light_offset);
 

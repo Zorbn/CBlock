@@ -65,10 +65,6 @@ inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_
 }
 
 inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t light_level, uint8_t mask, uint8_t offset) {
-    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
-        return;
-    }
-
     int32_t chunk_x = x / CHUNK_SIZE;
     int32_t chunk_z = z / CHUNK_SIZE;
 
@@ -82,14 +78,7 @@ inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int
 }
 
 inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset) {
-    if (y >= chunk_height) {
-        // TODO: Check if this is still necessary/correct with the new lighting system.
-        // Pretend that above the map their is maximum sunlight and no other light.
-        // sunlight_mask >> sunlight_offset = MAX_LIGHT_LEVEL, light_mask >> sunlight_offset = 0
-        return mask >> sunlight_offset;
-    }
-
-    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0) {
+    if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return 0;
     }
 
