@@ -167,7 +167,6 @@ void world_update_lighting(struct World *world, int32_t source_x, int32_t source
             new_sunlight = MAX_LIGHT_LEVEL;
         }
 
-        // Handle light emitting blocks.
         if (block == LIGHT_BLOCK) {
             new_light = MAX_LIGHT_LEVEL;
         }
@@ -196,12 +195,9 @@ void world_update_lighting(struct World *world, int32_t source_x, int32_t source
             world_set_light_level(world, current.x, current.y, current.z, new_sunlight, sunlight_mask, sunlight_offset);
             world_set_light_level(world, current.x, current.y, current.z, new_light, light_mask, light_offset);
 
-            // TODO: Unify this with the mesher's method of finding the block's light value.
             // TODO: If smooth lighting gets added, neighboring chunks need to be updated if this lighting update is on
             // a chunk boundary. (ie: the same as when setting a block).
-            if (GLM_MAX(old_light, old_sunlight) != GLM_MAX(new_light, new_sunlight)) {
-                world->chunks[chunk_i].is_dirty = true;
-            }
+            world->chunks[chunk_i].is_dirty = true;
 
             for (size_t side_i = 0; side_i < 6; side_i++) {
                 int32_t neighbor_x = current.x + directions[side_i].x;

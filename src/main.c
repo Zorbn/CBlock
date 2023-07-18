@@ -57,11 +57,15 @@ int main() {
     mat4s projection_matrix_3d;
     mat4s projection_matrix_2d;
 
-    int32_t view_matrix_location = glGetUniformLocation(program_3d, "view_matrix");
-    int32_t projection_matrix_location = glGetUniformLocation(program_3d, "projection_matrix");
+    int32_t view_matrix_location_3d = glGetUniformLocation(program_3d, "view_matrix");
+    int32_t projection_matrix_location_3d = glGetUniformLocation(program_3d, "projection_matrix");
+    int32_t elapsed_time_location_3d = glGetUniformLocation(program_3d, "elapsed_time");
 
-    double last_time = glfwGetTime();
+    int32_t projection_matrix_location_2d = glGetUniformLocation(program_2d, "projection_matrix");
+
+    double last_frame_time = glfwGetTime();
     float fps_print_timer = 0.0f;
+    float elapsed_time = 0.0f;
 
     struct MeshingInfo meshing_info = meshing_info_create(&world, texture_atlas_3d.width, texture_atlas_3d.height);
     HANDLE meshing_thread = CreateThread(NULL, 0, meshing_thread_start, &meshing_info, 0, NULL);
@@ -80,10 +84,11 @@ int main() {
             window.was_resized = false;
         }
 
-        double current_time = glfwGetTime();
-        float delta_time = (float)(current_time - last_time);
-        last_time = current_time;
+        double current_frame_time = glfwGetTime();
+        float delta_time = (float)(current_frame_time - last_frame_time);
+        last_frame_time = current_frame_time;
 
+        elapsed_time += delta_time;
         fps_print_timer += delta_time;
 
         if (fps_print_timer > 1.0f) {
@@ -114,13 +119,14 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(program_3d);
-        glUniformMatrix4fv(view_matrix_location, 1, GL_FALSE, (const float *)&view_matrix);
-        glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix_3d);
+        glUniformMatrix4fv(view_matrix_location_3d, 1, GL_FALSE, (const float *)&view_matrix);
+        glUniformMatrix4fv(projection_matrix_location_3d, 1, GL_FALSE, (const float *)&projection_matrix_3d);
+        glUniform1f(elapsed_time_location_3d, elapsed_time);
         glBindTexture(GL_TEXTURE_2D_ARRAY, texture_atlas_3d.id);
         meshing_info_draw(&meshing_info);
 
         glUseProgram(program_2d);
-        glUniformMatrix4fv(projection_matrix_location, 1, GL_FALSE, (const float *)&projection_matrix_2d);
+        glUniformMatrix4fv(projection_matrix_location_2d, 1, GL_FALSE, (const float *)&projection_matrix_2d);
         glBindTexture(GL_TEXTURE_2D, texture_atlas_2d.id);
         sprite_batch_draw(&sprite_batch);
 

@@ -121,13 +121,14 @@ struct Mesher mesher_create() {
     };
 }
 
-void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk,
-    int32_t texture_atlas_width, int32_t texture_atlas_height) {
+void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk *chunk, int32_t texture_atlas_width,
+    int32_t texture_atlas_height) {
 
     list_reset_float(&mesher->vertices);
     list_reset_uint32_t(&mesher->indices);
 
     uint8_t neighbors[6];
+    uint8_t neighbor_sunlight_levels[6];
     uint8_t neighbor_light_levels[6];
 
     for (int32_t z = 0; z < CHUNK_SIZE; z++) {
@@ -152,9 +153,13 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
                     int32_t neighbor_y = y + directions[side_i].y;
                     int32_t neighbor_z = chunk->z + z + directions[side_i].z;
                     neighbors[side_i] = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
-                    uint8_t sunlight_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, sunlight_mask, sunlight_offset);
-                    uint8_t light_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, light_mask, light_offset);
-                    neighbor_light_levels[side_i] = GLM_MAX(sunlight_level, light_level);
+                    uint8_t sunlight_level = world_get_light_level(
+                        world, neighbor_x, neighbor_y, neighbor_z, sunlight_mask, sunlight_offset);
+                    // TODO:
+                    neighbor_sunlight_levels[side_i] = sunlight_level; // * inv_light_level_count;
+                    uint8_t light_level =
+                        world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, light_mask, light_offset);
+                    neighbor_light_levels[side_i] = light_level; // * inv_light_level_count;
                 }
 
                 for (size_t side_i = 0; side_i < 6; side_i++) {
@@ -170,8 +175,6 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
                         list_push_uint32_t(&mesher->indices, index);
                     }
 
-                    float side_shade = cube_shades[side_i] * neighbor_light_levels[side_i] * inv_light_level_count;
-
                     for (size_t vertex_i = 0; vertex_i < 4; vertex_i++) {
                         // Position:
                         float vertex_x = chunk->x + x + cube_vertices[side_i][vertex_i].x;
@@ -182,9 +185,9 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
                         list_push_float(&mesher->vertices, vertex_z);
 
                         // Color:
-                        list_push_float(&mesher->vertices, side_shade);
-                        list_push_float(&mesher->vertices, side_shade);
-                        list_push_float(&mesher->vertices, side_shade);
+                        list_push_float(&mesher->vertices, cube_shades[side_i]);
+                        list_push_float(&mesher->vertices, neighbor_sunlight_levels[side_i]);
+                        list_push_float(&mesher->vertices, neighbor_light_levels[side_i]);
 
                         // UV:
                         float u = cube_uvs[side_i][vertex_i].u;
