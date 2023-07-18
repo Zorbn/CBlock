@@ -130,13 +130,13 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
     uint8_t neighbors[6];
     uint8_t neighbor_light_levels[6];
 
-    for (int32_t z = 0; z < chunk_size; z++) {
+    for (int32_t z = 0; z < CHUNK_SIZE; z++) {
         int32_t world_z = z + chunk->z;
-        for (int32_t x = 0; x < chunk_size; x++) {
+        for (int32_t x = 0; x < CHUNK_SIZE; x++) {
             int32_t world_x = x + chunk->x;
-            int32_t heightmap_index = HEIGHTMAP_INDEX(x, z);
-            int32_t y_min = chunk->heightmap_min[heightmap_index];
-            int32_t y_max = chunk->heightmap_max[heightmap_index];
+            int32_t heightmap_i = HEIGHTMAP_INDEX(x, z);
+            int32_t y_min = chunk->heightmap_min[heightmap_i];
+            int32_t y_max = chunk->heightmap_max[heightmap_i];
             for (int32_t y = y_min; y <= y_max; y++) {
                 uint8_t block = world_get_block(world, world_x, y, world_z);
                 // Don't include empty blocks in the mesh.

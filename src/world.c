@@ -10,6 +10,7 @@
 
 const size_t world_size = 4;
 const size_t world_length = world_size * world_size;
+const size_t world_size_in_blocks = world_size * CHUNK_SIZE;
 
 struct World world_create() {
     struct World world = (struct World){
@@ -24,24 +25,25 @@ struct World world_create() {
     assert(world.mutex);
 
     for (size_t i = 0; i < world_length; i++) {
-        int32_t chunk_x = (i % world_size) * chunk_size;
-        int32_t chunk_z = i / world_size * chunk_size;
+        int32_t chunk_x = (i % world_size) * CHUNK_SIZE;
+        int32_t chunk_z = i / world_size * CHUNK_SIZE;
         world.chunks[i] = chunk_create(chunk_x, chunk_z);
     }
 
     // TODO: This shouldnt be called manually on the main thread for every chunk
     for (size_t i = 0; i < world_length; i++) {
-        int32_t chunk_x = (i % world_size) * chunk_size;
-        int32_t chunk_z = i / world_size * chunk_size;
+        int32_t chunk_x = (i % world_size) * CHUNK_SIZE;
+        int32_t chunk_z = i / world_size * CHUNK_SIZE;
 
-        for (int32_t z = 0; z < chunk_size; z++) {
+        for (int32_t z = 0; z < CHUNK_SIZE; z++) {
             int32_t world_z = z + chunk_z;
-            for (int32_t x = 0; x < chunk_size; x++) {
+            for (int32_t x = 0; x < CHUNK_SIZE; x++) {
                 int32_t world_x = x + chunk_x;
 
                 size_t heightmap_i = HEIGHTMAP_INDEX(x, z);
                 int32_t heightmap_max = world.chunks[i].heightmap_max[heightmap_i];
-                world_light_add(&world, world_x, heightmap_max, world_z, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
+                int32_t sky_y = heightmap_max + 1;
+                world_light_add(&world, world_x, sky_y, world_z, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
             }
         }
     }
@@ -52,7 +54,8 @@ struct World world_create() {
 // TODO: Sunlight currently always propogates down without reducing it's light_level even after hitting a block.
 
 // Based on the Seed Of Andromeda lighting algorithm.
-void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
+void world_light_add(
+    struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
     world_set_light_level(world, x, y, z, MAX_LIGHT_LEVEL, mask, offset);
 
     list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
@@ -63,12 +66,8 @@ void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z, uint8
     while (world->light_add_queue.length > 0) {
         struct LightAddNode light_add_node = list_dequeue_struct_LightAddNode(&world->light_add_queue);
 
-        if (light_add_node.y < 0) {
-            puts("< 0 add");
-            continue;
-        }
-
-        uint8_t light_level = world_get_light_level(world, light_add_node.x, light_add_node.y, light_add_node.z, mask, offset);
+        uint8_t light_level =
+            world_get_light_level(world, light_add_node.x, light_add_node.y, light_add_node.z, mask, offset);
 
         // Sunlight needs to propogate down until it hits the ground, so iterate sides so that
         // down is first, which will speed up sunlight lighting updates.
@@ -77,7 +76,8 @@ void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z, uint8
             int32_t neighbor_y = light_add_node.y + directions[side_i].y;
             int32_t neighbor_z = light_add_node.z + directions[side_i].z;
             uint8_t neighbor_block = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
-            uint8_t neighbor_light_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, mask, offset);
+            uint8_t neighbor_light_level =
+                world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, mask, offset);
 
             bool sunlight_down = light_type == LIGHT_TYPE_SUNLIGHT && side_i == down;
             bool should_continue =
@@ -95,7 +95,8 @@ void world_light_add(struct World *world, int32_t x, int32_t y, int32_t z, uint8
     }
 }
 
-void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
+void world_light_remove(
+    struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
     uint8_t previous_light_level = world_get_light_level(world, x, y, z, mask, offset);
     list_push_struct_LightRemoveNode(&world->light_remove_queue, (struct LightRemoveNode){
                                                                      .x = x,
@@ -109,17 +110,12 @@ void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z, ui
     while (world->light_remove_queue.length > 0) {
         struct LightRemoveNode light_remove_node = list_dequeue_struct_LightRemoveNode(&world->light_remove_queue);
 
-        if (light_remove_node.y < 0) {
-            puts("< 0 remove");
-            continue;
-        }
-
-        // Does it make sense to iterate backwards here like in world_light_add?
-        for (size_t side_i = 0; side_i < 6; side_i++) {
+        for (int32_t side_i = down; side_i >= 0; side_i--) {
             int32_t neighbor_x = light_remove_node.x + directions[side_i].x;
             int32_t neighbor_y = light_remove_node.y + directions[side_i].y;
             int32_t neighbor_z = light_remove_node.z + directions[side_i].z;
-            uint8_t neighbor_light_level = world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, mask, offset);
+            uint8_t neighbor_light_level =
+                world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, mask, offset);
 
             bool sunlight_down = light_type == LIGHT_TYPE_SUNLIGHT && side_i == down;
             bool should_continue = neighbor_light_level < light_remove_node.light_level || sunlight_down;
@@ -145,7 +141,9 @@ void world_light_remove(struct World *world, int32_t x, int32_t y, int32_t z, ui
 }
 
 void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
-    const size_t world_size_in_blocks = world_size * chunk_size;
+    // TODO: Building towards chunk borders above ground sometimes creates shadow-line artifacts along the border. It's
+    // fixed by initially lighting chunks from the of the chunk, rather than the top of their heightmap, but I think
+    // there's a better fix.
 
     for (int32_t iz = z - MAX_LIGHT_LEVEL; iz <= z + MAX_LIGHT_LEVEL; iz++) {
         for (int32_t ix = x - MAX_LIGHT_LEVEL; ix <= x + MAX_LIGHT_LEVEL; ix++) {
@@ -154,11 +152,24 @@ void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
             }
 
             // TODO: Make a chunk inline function for getting heightmap values.
-            size_t chunk_i = CHUNK_INDEX(x / chunk_size, z / chunk_size);
-            size_t heightmap_i = HEIGHTMAP_INDEX(x % chunk_size, z % chunk_size);
+            size_t chunk_i = CHUNK_INDEX(ix / CHUNK_SIZE, iz / CHUNK_SIZE);
+            size_t heightmap_i = HEIGHTMAP_INDEX(ix % CHUNK_SIZE, iz % CHUNK_SIZE);
             int32_t heightmap_max = world->chunks[chunk_i].heightmap_max[heightmap_i];
-            world_light_remove(world, ix, heightmap_max, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
-            world_light_add(world, ix, heightmap_max, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
+
+            // Sunlight conceptually emits from the sky, which is at the top of the map, but starting up there
+            // is pointless if there are no blocks around to light. Instead start at the top of the heightmap
+            // for this xz position, where the sky and the ground meet. However, this will cause problems when
+            // the heightmap for a neighboring xz position is below the y level of this lighting update, since
+            // starting at the heightmap height will only cast light below the updated location, missing it.
+            // In that case, start casting light from the current y position, which is in the sky if it is
+            // greater than the heightmap max, while also being low enough to not waste resources on lighting
+            // empty space. Move up by one block to make sure we start in the sky, since heightmap_max is the location
+            // of the highest block, and if this update is due to placing a block then y will also be inside the ground.
+            // TODO: Placing a block at the maximum y level casts shadows strangely.
+            int32_t sun_y = GLM_MAX(y, heightmap_max) + 1;
+
+            world_light_remove(world, ix, sun_y, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
+            world_light_add(world, ix, sun_y, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
 
             for (int32_t iy = y - MAX_LIGHT_LEVEL; iy <= y + MAX_LIGHT_LEVEL; iy++) {
                 if (world_get_block(world, ix, iy, iz) == LIGHT_BLOCK) {
@@ -278,21 +289,20 @@ bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size
 }
 
 void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block) {
-    const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return;
     }
 
     WaitForSingleObject(world->mutex, INFINITE);
 
-    int32_t chunk_x = x / chunk_size;
-    int32_t chunk_z = z / chunk_size;
+    int32_t chunk_x = x / CHUNK_SIZE;
+    int32_t chunk_z = z / CHUNK_SIZE;
 
     int32_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
 
-    int32_t block_x = x % chunk_size;
+    int32_t block_x = x % CHUNK_SIZE;
     int32_t block_y = y % chunk_height;
-    int32_t block_z = z % chunk_size;
+    int32_t block_z = z % CHUNK_SIZE;
 
     // If the old block was a light block then it's light needs to be removed.
     if (world_get_block(world, x, y, z) == LIGHT_BLOCK) {
@@ -326,7 +336,7 @@ void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8
         world->chunks[CHUNK_INDEX(chunk_x - 1, chunk_z)].is_dirty = true;
     }
 
-    if (block_x == chunk_size - 1 && chunk_x < world_size - 1) {
+    if (block_x == CHUNK_SIZE - 1 && chunk_x < world_size - 1) {
         world->chunks[CHUNK_INDEX(chunk_x + 1, chunk_z)].is_dirty = true;
     }
 
@@ -334,7 +344,7 @@ void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8
         world->chunks[CHUNK_INDEX(chunk_x, chunk_z - 1)].is_dirty = true;
     }
 
-    if (block_z == chunk_size - 1 && chunk_z < world_size - 1) {
+    if (block_z == CHUNK_SIZE - 1 && chunk_z < world_size - 1) {
         world->chunks[CHUNK_INDEX(chunk_x, chunk_z + 1)].is_dirty = true;
     }
 
@@ -356,5 +366,7 @@ void world_destroy(struct World *world) {
 }
 
 extern inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z);
-extern inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t light_level, uint8_t mask, uint8_t offset);
-extern inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset);
+extern inline void world_set_light_level(
+    struct World *world, int32_t x, int32_t y, int32_t z, uint8_t light_level, uint8_t mask, uint8_t offset);
+extern inline uint8_t world_get_light_level(
+    struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset);

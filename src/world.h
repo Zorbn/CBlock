@@ -15,6 +15,7 @@
 
 extern const size_t world_size;
 extern const size_t world_length;
+extern const size_t world_size_in_blocks;
 
 struct LightAddNode {
     int32_t x;
@@ -83,55 +84,52 @@ void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8
 void world_destroy(struct World *world);
 
 inline uint8_t world_get_block(struct World *world, int32_t x, int32_t y, int32_t z) {
-    const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return 1;
     }
 
-    int32_t chunk_x = x / chunk_size;
-    int32_t chunk_z = z / chunk_size;
+    int32_t chunk_x = x / CHUNK_SIZE;
+    int32_t chunk_z = z / CHUNK_SIZE;
 
     int32_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
 
-    int32_t block_x = x % chunk_size;
+    int32_t block_x = x % CHUNK_SIZE;
     int32_t block_y = y % chunk_height;
-    int32_t block_z = z % chunk_size;
+    int32_t block_z = z % CHUNK_SIZE;
 
     return chunk_get_block(&world->chunks[chunk_i], block_x, block_y, block_z);
 }
 
 inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t light_level, uint8_t mask, uint8_t offset) {
-    const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return;
     }
 
-    int32_t chunk_x = x / chunk_size;
-    int32_t chunk_z = z / chunk_size;
+    int32_t chunk_x = x / CHUNK_SIZE;
+    int32_t chunk_z = z / CHUNK_SIZE;
 
     int32_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
 
-    int32_t block_x = x % chunk_size;
+    int32_t block_x = x % CHUNK_SIZE;
     int32_t block_y = y % chunk_height;
-    int32_t block_z = z % chunk_size;
+    int32_t block_z = z % CHUNK_SIZE;
 
     chunk_set_light_level(&world->chunks[chunk_i], block_x, block_y, block_z, light_level, mask, offset);
 }
 
 inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset) {
-    const size_t world_size_in_blocks = world_size * chunk_size;
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return 0;
     }
 
-    int32_t chunk_x = x / chunk_size;
-    int32_t chunk_z = z / chunk_size;
+    int32_t chunk_x = x / CHUNK_SIZE;
+    int32_t chunk_z = z / CHUNK_SIZE;
 
     int32_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
 
-    int32_t block_x = x % chunk_size;
+    int32_t block_x = x % CHUNK_SIZE;
     int32_t block_y = y % chunk_height;
-    int32_t block_z = z % chunk_size;
+    int32_t block_z = z % CHUNK_SIZE;
 
     return chunk_get_light_level(&world->chunks[chunk_i], block_x, block_y, block_z, mask, offset);
 }

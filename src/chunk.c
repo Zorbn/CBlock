@@ -3,10 +3,9 @@
 #include <stdlib.h>
 #include <assert.h>
 
-const size_t chunk_size = 16;
 const size_t chunk_height = 256;
-const size_t chunk_length = chunk_size * chunk_size * chunk_height;
-const size_t heightmap_length = chunk_size * chunk_size;
+const size_t chunk_length = CHUNK_SIZE * CHUNK_SIZE * chunk_height;
+const size_t heightmap_length = CHUNK_SIZE * CHUNK_SIZE;
 const float inv_light_level_count = 1.0f / MAX_LIGHT_LEVEL;
 const uint8_t light_mask = 0x0f;    // Lower 4 bits are for lighting.
 const uint8_t sunlight_mask = 0xf0; // Upper 4 bits are for sunlighting.
@@ -30,12 +29,12 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
     assert(chunk.heightmap_max);
 
     for (size_t i = 0; i < heightmap_length; i++) {
-        chunk.heightmap_min[i] = chunk_height;
+        chunk.heightmap_min[i] = chunk_height - 1;
     }
 
     size_t ground_height = chunk_height / 2;
-    for (size_t z = 0; z < chunk_size; z++) {
-        for (size_t x = 0; x < chunk_size; x++) {
+    for (size_t z = 0; z < CHUNK_SIZE; z++) {
+        for (size_t x = 0; x < CHUNK_SIZE; x++) {
             for (size_t y = 0; y <= ground_height; y++) {
                 uint8_t block = 1;
 
@@ -51,31 +50,34 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
     return chunk;
 }
 
+#include <stdio.h>
+
 void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t block) {
-    int32_t heightmap_index = HEIGHTMAP_INDEX(x, z);
-    int32_t *heightmap_current_min = chunk->heightmap_min + heightmap_index;
-    int32_t *heightmap_current_max = chunk->heightmap_max + heightmap_index;
+    int32_t heightmap_i = HEIGHTMAP_INDEX(x, z);
+    int32_t *heightmap_block_min = chunk->heightmap_min + heightmap_i;
+    int32_t *heightmap_block_max = chunk->heightmap_max + heightmap_i;
 
     // TODO: Only use this logic after the map is generated, when creating a new chunk the heightmap should be created once the chunk has generated.
     if (block == 0) {
-        for (int32_t y = chunk_height - 1; y >= 0; y--) {
-            if (chunk_get_block(chunk, x, y, z) != 0) {
-                *heightmap_current_max = y;
+        int32_t iy;
+        for (iy = chunk_height - 1; iy >= 0; iy--) {
+            if (chunk_get_block(chunk, x, iy, z) != 0) {
                 break;
             }
         }
+        *heightmap_block_max = iy;
 
-        for (int32_t y = 0; y < chunk_height; y++) {
-            if (chunk_get_block(chunk, x, y, z) != 0) {
-                *heightmap_current_min = y;
+        for (iy = 0; iy < chunk_height; iy++) {
+            if (chunk_get_block(chunk, x, iy, z) != 0) {
                 break;
             }
         }
+        *heightmap_block_min = iy;
     } else {
-        if (y < *heightmap_current_min) {
-            *heightmap_current_min = y;
-        } else if (y > *heightmap_current_max) {
-            *heightmap_current_max = y;
+        if (y < *heightmap_block_min) {
+            *heightmap_block_min = y;
+        } else if (y > *heightmap_block_max) {
+            *heightmap_block_max = y;
         }
     }
 

@@ -41,7 +41,7 @@ void camera_move(struct Camera *camera, struct Window *window, struct World *wor
 
     direction = glms_vec3_normalize(direction);
 
-    const float camera_move_speed = 5.0f;
+    const float camera_move_speed = 15.0f;
     float current_move_speed = delta_time * camera_move_speed;
 
     vec3s forward_movement = glms_vec3_rotate(GLMS_ZUP, glm_rad(camera->rotation_y), GLMS_YUP);

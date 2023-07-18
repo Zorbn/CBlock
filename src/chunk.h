@@ -6,7 +6,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-extern const size_t chunk_size;
+#define CHUNK_SIZE 16
 extern const size_t chunk_height;
 extern const size_t chunk_length;
 #define MAX_LIGHT_LEVEL 15
@@ -26,8 +26,8 @@ struct Chunk {
     bool is_dirty;
 };
 
-#define BLOCK_INDEX(x, y, z) ((y) + (x)*chunk_height + (z)*chunk_height * chunk_size)
-#define HEIGHTMAP_INDEX(x, z) ((x) + (z)*chunk_size)
+#define BLOCK_INDEX(x, y, z) ((y) + (x)*chunk_height + (z)*chunk_height * CHUNK_SIZE)
+#define HEIGHTMAP_INDEX(x, z) ((x) + (z)*CHUNK_SIZE)
 
 struct Chunk chunk_create(int32_t x, int32_t z);
 void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t block);
@@ -46,8 +46,6 @@ inline uint8_t chunk_get_light_level(struct Chunk *chunk, int32_t x, int32_t y, 
 inline void chunk_set_light_level(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t light_level, uint8_t mask, uint8_t offset) {
     size_t i = BLOCK_INDEX(x, y, z);
     chunk->lightmap[i] = (chunk->lightmap[i] & ~mask) | (light_level << offset);
-    // TODO: Remove and instead improve existing light update detection (make the detection range chunk_height tall).
-    chunk->is_dirty = true;
 }
 
 #endif

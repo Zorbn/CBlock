@@ -5,7 +5,7 @@
 const size_t mesher_count = 6;
 const size_t light_update_size = MAX_LIGHT_LEVEL * 2 + 1;
 
-#define LIGHT_LEVEL_CACHE_INDEX(x, y, z) ((y) + (x)*light_update_size + (z)*light_update_size * light_update_size)
+#define LIGHT_LEVEL_CACHE_INDEX(x, y, z) ((y) + (x)*chunk_height + (z)*chunk_height * light_update_size)
 
 DWORD WINAPI meshing_thread_start(void *start_info) {
     struct MeshingInfo *info = start_info;
@@ -17,22 +17,23 @@ DWORD WINAPI meshing_thread_start(void *start_info) {
             struct LightEventNode light_event_node =
                 list_dequeue_struct_LightEventNode(&info->world->light_event_queue);
 
-            // TODO:
-            // meshing_info_cache_light_levels(info, &light_event_node);
+            meshing_info_cache_light_levels(info, &light_event_node);
 
             switch (light_event_node.event_type) {
                 case LIGHT_EVENT_TYPE_ADD:
-                    world_light_add(info->world, light_event_node.x, light_event_node.y, light_event_node.z, light_mask, light_offset, LIGHT_TYPE_LIGHT);
+                    world_light_add(info->world, light_event_node.x, light_event_node.y, light_event_node.z, light_mask,
+                        light_offset, LIGHT_TYPE_LIGHT);
                     break;
                 case LIGHT_EVENT_TYPE_REMOVE:
-                    world_light_remove(info->world, light_event_node.x, light_event_node.y, light_event_node.z, light_mask, light_offset, LIGHT_TYPE_LIGHT);
+                    world_light_remove(info->world, light_event_node.x, light_event_node.y, light_event_node.z,
+                        light_mask, light_offset, LIGHT_TYPE_LIGHT);
                     break;
                 case LIGHT_EVENT_TYPE_UPDATE:
                     world_light_update(info->world, light_event_node.x, light_event_node.y, light_event_node.z);
                     break;
             }
 
-            // meshing_info_mark_dirty_chunks(info, &light_event_node);
+            meshing_info_mark_dirty_chunks(info, &light_event_node);
         }
 
         // Process meshing updates:
@@ -71,7 +72,7 @@ DWORD WINAPI meshing_thread_start(void *start_info) {
 }
 
 struct MeshingInfo meshing_info_create(struct World *world, int32_t texture_atlas_width, int32_t texture_atlas_height) {
-    const size_t light_update_length = light_update_size * light_update_size * light_update_size;
+    const size_t light_update_length = light_update_size * light_update_size * chunk_height;
 
     struct MeshingInfo info = (struct MeshingInfo){
         .world = world,
@@ -128,17 +129,30 @@ void meshing_info_draw(struct MeshingInfo *info) {
 }
 
 void meshing_info_cache_light_levels(struct MeshingInfo *info, struct LightEventNode *light_event_node) {
+    // TODO: Is light_event_node's y component still necessary?
+
     for (int32_t z = -MAX_LIGHT_LEVEL; z <= MAX_LIGHT_LEVEL; z++) {
         int32_t world_z = z + light_event_node->z;
         int32_t cache_z = z + MAX_LIGHT_LEVEL;
         for (int32_t x = -MAX_LIGHT_LEVEL; x <= MAX_LIGHT_LEVEL; x++) {
             int32_t world_x = x + light_event_node->x;
             int32_t cache_x = x + MAX_LIGHT_LEVEL;
-            for (int32_t y = -MAX_LIGHT_LEVEL; y <= MAX_LIGHT_LEVEL; y++) {
-                int32_t world_y = y + light_event_node->y;
-                int32_t cache_y = y + MAX_LIGHT_LEVEL;
 
-                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, light_mask, light_offset);
+            // TODO: Duplicate code:
+            if (world_x < 0 || world_x >= world_size_in_blocks || world_z < 0 || world_z >= world_size_in_blocks) {
+                continue;
+            }
+
+            size_t chunk_i = CHUNK_INDEX(world_x / CHUNK_SIZE, world_z / CHUNK_SIZE);
+            size_t heightmap_i = HEIGHTMAP_INDEX(world_x % CHUNK_SIZE, world_z % CHUNK_SIZE);
+            int32_t y_min = info->world->chunks[chunk_i].heightmap_min[heightmap_i];
+            int32_t y_max = info->world->chunks[chunk_i].heightmap_max[heightmap_i];
+
+            for (int32_t world_y = y_min; world_y <= y_max; world_y++) {
+                int32_t cache_y = world_y - y_min;
+
+                // TODO: Take both sunlight and normal light into account. (Cache same same light value used in the mesher for drawing the blocks, only visual changes matter)
+                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, sunlight_mask, sunlight_offset);
                 size_t cache_i = LIGHT_LEVEL_CACHE_INDEX(cache_x, cache_y, cache_z);
                 info->light_level_cache[cache_i] = light_level;
             }
@@ -153,11 +167,21 @@ void meshing_info_mark_dirty_chunks(struct MeshingInfo *info, struct LightEventN
         for (int32_t x = -MAX_LIGHT_LEVEL; x <= MAX_LIGHT_LEVEL; x++) {
             int32_t world_x = x + light_event_node->x;
             int32_t cache_x = x + MAX_LIGHT_LEVEL;
-            for (int32_t y = -MAX_LIGHT_LEVEL; y <= MAX_LIGHT_LEVEL; y++) {
-                int32_t world_y = y + light_event_node->y;
-                int32_t cache_y = y + MAX_LIGHT_LEVEL;
 
-                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, light_mask, light_offset);
+            // TODO: Duplicate code:
+            if (world_x < 0 || world_x >= world_size_in_blocks || world_z < 0 || world_z >= world_size_in_blocks) {
+                continue;
+            }
+
+            size_t chunk_i = CHUNK_INDEX(world_x / CHUNK_SIZE, world_z / CHUNK_SIZE);
+            size_t heightmap_i = HEIGHTMAP_INDEX(world_x % CHUNK_SIZE, world_z % CHUNK_SIZE);
+            int32_t y_min = info->world->chunks[chunk_i].heightmap_min[heightmap_i];
+            int32_t y_max = info->world->chunks[chunk_i].heightmap_max[heightmap_i];
+
+            for (int32_t world_y = y_min; world_y <= y_max; world_y++) {
+                int32_t cache_y = world_y - y_min;
+
+                uint8_t light_level = world_get_light_level(info->world, world_x, world_y, world_z, sunlight_mask, sunlight_offset);
                 size_t cache_i = LIGHT_LEVEL_CACHE_INDEX(cache_x, cache_y, cache_z);
                 uint8_t cached_light_level = info->light_level_cache[cache_i];
 
@@ -168,9 +192,6 @@ void meshing_info_mark_dirty_chunks(struct MeshingInfo *info, struct LightEventN
                     continue;
                 }
 
-                int32_t chunk_x = world_x / chunk_size;
-                int32_t chunk_z = world_z / chunk_size;
-                size_t chunk_i = CHUNK_INDEX(chunk_x, chunk_z);
                 info->world->chunks[chunk_i].is_dirty = true;
             }
         }
