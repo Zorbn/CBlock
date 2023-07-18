@@ -27,8 +27,6 @@ DWORD WINAPI meshing_thread_start(void *start_info);
 struct MeshingInfo meshing_info_create(struct World *world, int32_t texture_atlas_width, int32_t texture_atlas_height);
 void meshing_info_upload(struct MeshingInfo *info);
 void meshing_info_draw(struct MeshingInfo *info);
-void meshing_info_cache_light_levels(struct MeshingInfo *info, struct LightEventNode *light_event_node);
-void meshing_info_mark_dirty_chunks(struct MeshingInfo *info, struct LightEventNode *light_event_node);
 void meshing_info_destroy(struct MeshingInfo *info);
 
 #endif

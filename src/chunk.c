@@ -53,6 +53,10 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
 #include <stdio.h>
 
 void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t block) {
+    size_t i = BLOCK_INDEX(x, y, z);
+    chunk->blocks[i] = block;
+    chunk->is_dirty = true;
+
     int32_t heightmap_i = HEIGHTMAP_INDEX(x, z);
     int32_t *heightmap_block_min = chunk->heightmap_min + heightmap_i;
     int32_t *heightmap_block_max = chunk->heightmap_max + heightmap_i;
@@ -80,10 +84,6 @@ void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8
             *heightmap_block_max = y;
         }
     }
-
-    size_t i = BLOCK_INDEX(x, y, z);
-    chunk->blocks[i] = block;
-    chunk->is_dirty = true;
 }
 
 void chunk_destroy(struct Chunk *chunk) {

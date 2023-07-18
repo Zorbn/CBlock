@@ -9,6 +9,8 @@
 #include <inttypes.h>
 #include <string.h>
 
+// TODO: Consider removing unused list functions.
+
 #define LIST_DEFINE(type)                                                                                              \
     struct List_##type {                                                                                               \
         type *data;                                                                                                    \
@@ -41,6 +43,13 @@
                                                                                                                        \
         list->data[list->length] = value;                                                                              \
         ++list->length;                                                                                                \
+    }                                                                                                                  \
+                                                                                                                       \
+    inline type list_pop_##type(struct List_##type *list) {                                                            \
+        assert(list->length > 0);                                                                                      \
+                                                                                                                       \
+        --list->length;                                                                                                \
+        return list->data[list->length];                                                                               \
     }                                                                                                                  \
                                                                                                                        \
     inline type list_dequeue_##type(struct List_##type *list) {                                                        \

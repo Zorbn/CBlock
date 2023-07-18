@@ -15,9 +15,7 @@ const size_t world_size_in_blocks = world_size * CHUNK_SIZE;
 struct World world_create() {
     struct World world = (struct World){
         .chunks = malloc(world_length * sizeof(struct Chunk)),
-        .light_event_queue = list_create_struct_LightEventNode(16),
-        .light_add_queue = list_create_struct_LightAddNode(64),
-        .light_remove_queue = list_create_struct_LightRemoveNode(64),
+        .lighting_updates = list_create_struct_LightingUpdate(128),
         .mutex = CreateMutex(NULL, FALSE, NULL),
     };
 
@@ -30,158 +28,7 @@ struct World world_create() {
         world.chunks[i] = chunk_create(chunk_x, chunk_z);
     }
 
-    // TODO: This shouldnt be called manually on the main thread for every chunk
-    for (size_t i = 0; i < world_length; i++) {
-        int32_t chunk_x = (i % world_size) * CHUNK_SIZE;
-        int32_t chunk_z = i / world_size * CHUNK_SIZE;
-
-        for (int32_t z = 0; z < CHUNK_SIZE; z++) {
-            int32_t world_z = z + chunk_z;
-            for (int32_t x = 0; x < CHUNK_SIZE; x++) {
-                int32_t world_x = x + chunk_x;
-
-                size_t heightmap_i = HEIGHTMAP_INDEX(x, z);
-                int32_t heightmap_max = world.chunks[i].heightmap_max[heightmap_i];
-                int32_t sky_y = heightmap_max + 1;
-
-                // Sky above the heightmap should always be filled with sunlight.
-                memset(&world.chunks[i].lightmap[BLOCK_INDEX(x, sky_y, z)], sunlight_mask, chunk_height - sky_y);
-
-                world_light_add(&world, world_x, sky_y, world_z, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
-            }
-        }
-    }
-
     return world;
-}
-
-// Based on the Seed Of Andromeda lighting algorithm.
-void world_light_add(
-    struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
-
-    world_set_light_level(world, x, y, z, MAX_LIGHT_LEVEL, mask, offset);
-
-    list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
-                                                               .x = x,
-                                                               .y = y,
-                                                               .z = z,
-                                                           });
-    while (world->light_add_queue.length > 0) {
-        struct LightAddNode light_add_node = list_dequeue_struct_LightAddNode(&world->light_add_queue);
-
-        uint8_t light_level =
-            world_get_light_level(world, light_add_node.x, light_add_node.y, light_add_node.z, mask, offset);
-
-        // Sunlight needs to propogate down until it hits the ground, so iterate sides so that
-        // down is first, which will speed up sunlight lighting updates.
-        for (int32_t side_i = down; side_i >= 0; side_i--) {
-            int32_t neighbor_x = light_add_node.x + directions[side_i].x;
-            int32_t neighbor_y = light_add_node.y + directions[side_i].y;
-            int32_t neighbor_z = light_add_node.z + directions[side_i].z;
-            uint8_t neighbor_block = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
-            uint8_t neighbor_light_level =
-                world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, mask, offset);
-
-            bool sunlight_down = light_type == LIGHT_TYPE_SUNLIGHT && side_i == down;
-            bool should_continue =
-                (sunlight_down && neighbor_light_level < light_level) || (neighbor_light_level + 1 < light_level);
-            if ((neighbor_block == 0 || neighbor_block == LIGHT_BLOCK) && should_continue) {
-                bool preserve_light_level = sunlight_down && light_level == MAX_LIGHT_LEVEL;
-                uint8_t new_light_level = preserve_light_level ? light_level : light_level - 1;
-                world_set_light_level(world, neighbor_x, neighbor_y, neighbor_z, new_light_level, mask, offset);
-                list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
-                                                                           .x = neighbor_x,
-                                                                           .y = neighbor_y,
-                                                                           .z = neighbor_z,
-                                                                       });
-            }
-        }
-    }
-}
-
-void world_light_remove(
-    struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset, enum LightType light_type) {
-
-    uint8_t previous_light_level = world_get_light_level(world, x, y, z, mask, offset);
-    list_push_struct_LightRemoveNode(&world->light_remove_queue, (struct LightRemoveNode){
-                                                                     .x = x,
-                                                                     .y = y,
-                                                                     .z = z,
-                                                                     .light_level = previous_light_level,
-                                                                 });
-
-    world_set_light_level(world, x, y, z, 0, mask, offset);
-
-    while (world->light_remove_queue.length > 0) {
-        struct LightRemoveNode light_remove_node = list_dequeue_struct_LightRemoveNode(&world->light_remove_queue);
-
-        for (int32_t side_i = down; side_i >= 0; side_i--) {
-            int32_t neighbor_x = light_remove_node.x + directions[side_i].x;
-            int32_t neighbor_y = light_remove_node.y + directions[side_i].y;
-            int32_t neighbor_z = light_remove_node.z + directions[side_i].z;
-            uint8_t neighbor_light_level =
-                world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, mask, offset);
-
-            bool sunlight_down = light_type == LIGHT_TYPE_SUNLIGHT && side_i == down;
-            bool should_continue = neighbor_light_level < light_remove_node.light_level || sunlight_down;
-            if (neighbor_light_level != 0 && should_continue) {
-                // Get rid of outdated light values.
-                world_set_light_level(world, neighbor_x, neighbor_y, neighbor_z, 0, mask, offset);
-                list_push_struct_LightRemoveNode(&world->light_remove_queue, (struct LightRemoveNode){
-                                                                                 .x = neighbor_x,
-                                                                                 .y = neighbor_y,
-                                                                                 .z = neighbor_z,
-                                                                                 .light_level = neighbor_light_level,
-                                                                             });
-            } else if (neighbor_light_level >= light_remove_node.light_level) {
-                // Repopulate the light map based on valid neighboring light values.
-                list_push_struct_LightAddNode(&world->light_add_queue, (struct LightAddNode){
-                                                                           .x = neighbor_x,
-                                                                           .y = neighbor_y,
-                                                                           .z = neighbor_z,
-                                                                       });
-            }
-        }
-    }
-}
-
-void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
-    size_t update_chunk_i = CHUNK_INDEX(x / CHUNK_SIZE, z / CHUNK_SIZE);
-    size_t update_heightmap_i = HEIGHTMAP_INDEX(x % CHUNK_SIZE, z % CHUNK_SIZE);
-    int32_t update_heightmap_max = world->chunks[update_chunk_i].heightmap_max[update_heightmap_i];
-
-    for (int32_t iz = z - MAX_LIGHT_LEVEL; iz <= z + MAX_LIGHT_LEVEL; iz++) {
-        for (int32_t ix = x - MAX_LIGHT_LEVEL; ix <= x + MAX_LIGHT_LEVEL; ix++) {
-            if (ix < 0 || ix >= world_size_in_blocks || iz < 0 || iz >= world_size_in_blocks) {
-                continue;
-            }
-
-            // TODO: Make a chunk inline function for getting heightmap values.
-            size_t chunk_i = CHUNK_INDEX(ix / CHUNK_SIZE, iz / CHUNK_SIZE);
-            size_t heightmap_i = HEIGHTMAP_INDEX(ix % CHUNK_SIZE, iz % CHUNK_SIZE);
-            int32_t heightmap_max = world->chunks[chunk_i].heightmap_max[heightmap_i];
-
-            // Sunlight conceptually emits from the sky, which is at the top of the map, but starting up there
-            // is pointless if there are no blocks around to light. Instead start at the top of the heightmap
-            // for this xz position, where the sky and the ground meet. However, this will cause problems when
-            // the heightmap for a neighboring xz position is below the y level of this lighting update, since
-            // starting at the heightmap height will only cast light below the updated location, missing it.
-            // In that case, start casting light from the heightmap height of the update's xz position.
-            // Move up by one block to make sure we start in the sky, since heightmap_max is the
-            // location of the highest block, so starting their would be starting one block underground.
-            int32_t sun_y = GLM_MAX(update_heightmap_max, heightmap_max) + 1;
-
-            world_light_remove(world, ix, sun_y, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
-            world_light_add(world, ix, sun_y, iz, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
-
-            for (int32_t iy = y - MAX_LIGHT_LEVEL; iy <= y + MAX_LIGHT_LEVEL; iy++) {
-                if (world_get_block(world, ix, iy, iz) == LIGHT_BLOCK) {
-                    world_light_remove(world, ix, iy, iz, light_mask, light_offset, LIGHT_TYPE_LIGHT);
-                    world_light_add(world, ix, iy, iz, light_mask, light_offset, LIGHT_TYPE_LIGHT);
-                }
-            }
-        }
-    }
 }
 
 // Uses DDA Voxel traversal to find the first voxel hit by the ray.
@@ -291,6 +138,96 @@ bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size
     return false;
 }
 
+// TODO: Add to header, call from other thread instead of main, etc.
+// Based on xtreme8000's CavEX lighting algorithm.
+void world_update_lighting(struct World *world, int32_t source_x, int32_t source_y, int32_t source_z) {
+    list_push_struct_LightingUpdate(&world->lighting_updates, (struct LightingUpdate){
+                                                                  .x = source_x,
+                                                                  .y = source_y,
+                                                                  .z = source_z,
+                                                              });
+
+    while (world->lighting_updates.length > 0) {
+        struct LightingUpdate current = list_pop_struct_LightingUpdate(&world->lighting_updates);
+
+        size_t chunk_i = CHUNK_INDEX(current.x / CHUNK_SIZE, current.z / CHUNK_SIZE);
+        size_t heightmap_i = HEIGHTMAP_INDEX(current.x % CHUNK_SIZE, current.z % CHUNK_SIZE);
+        int32_t heightmap_max = world->chunks[chunk_i].heightmap_max[heightmap_i];
+
+        uint8_t block = world_get_block(world, current.x, current.y, current.z);
+
+        uint8_t old_sunlight =
+            world_get_light_level(world, current.x, current.y, current.z, sunlight_mask, sunlight_offset);
+        uint8_t old_light = world_get_light_level(world, current.x, current.y, current.z, light_mask, light_offset);
+
+        uint8_t new_sunlight = 0;
+        uint8_t new_light = 0;
+
+        if (current.y >= heightmap_max + 1) {
+            new_sunlight = MAX_LIGHT_LEVEL;
+        }
+
+        // Handle light emitting blocks.
+        if (block == LIGHT_BLOCK) {
+            new_light = MAX_LIGHT_LEVEL;
+        }
+
+        // Handle transparent blocks.
+        if (block == 0) {
+            for (size_t side_i = 0; side_i < 6; side_i++) {
+                int32_t neighbor_x = current.x + directions[side_i].x;
+                int32_t neighbor_y = current.y + directions[side_i].y;
+                int32_t neighbor_z = current.z + directions[side_i].z;
+
+                if (neighbor_x >= 0 && neighbor_x < world_size_in_blocks && neighbor_y >= 0 &&
+                    neighbor_y < chunk_height && neighbor_z >= 0 && neighbor_z < world_size_in_blocks) {
+                    uint8_t neighbor_block = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
+                    uint8_t neighbor_sunlight_level = world_get_light_level(
+                        world, neighbor_x, neighbor_y, neighbor_z, sunlight_mask, sunlight_offset);
+                    // TODO: Is it necessary to check for != 0 blocks? Or can it be assumed that their light level will
+                    // be 0?
+                    bool is_neighbor_transparent = neighbor_block == 0 || neighbor_block == LIGHT_BLOCK;
+                    new_sunlight =
+                        GLM_MAX(is_neighbor_transparent ? GLM_MAX(neighbor_sunlight_level - 1, 0) : 0, new_sunlight);
+                    uint8_t neighbor_light_level =
+                        world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, light_mask, light_offset);
+                    new_light = GLM_MAX(is_neighbor_transparent ? GLM_MAX(neighbor_light_level - 1, 0) : 0, new_light);
+                }
+            }
+        }
+
+        bool is_light_different = (old_light != new_light) || (old_sunlight != new_sunlight);
+        if (is_light_different /* TODO: Is this necessary? -> */ ||
+            (source_x == current.x && source_y == current.y && source_z == current.z)) {
+            world_set_light_level(world, current.x, current.y, current.z, new_sunlight, sunlight_mask, sunlight_offset);
+            world_set_light_level(world, current.x, current.y, current.z, new_light, light_mask, light_offset);
+
+            // TODO: Unify this with the mesher's method of finding the block's light value.
+            // TODO: If smooth lighting gets added, neighboring chunks need to be updated if this lighting update is on
+            // a chunk boundary. (ie: the same as when setting a block).
+            if (GLM_MAX(old_light, old_sunlight) != GLM_MAX(new_light, new_sunlight)) {
+                world->chunks[chunk_i].is_dirty = true;
+            }
+
+            for (size_t side_i = 0; side_i < 6; side_i++) {
+                int32_t neighbor_x = current.x + directions[side_i].x;
+                int32_t neighbor_y = current.y + directions[side_i].y;
+                int32_t neighbor_z = current.z + directions[side_i].z;
+
+                if (neighbor_x >= 0 && neighbor_x < world_size_in_blocks && neighbor_y >= 0 &&
+                    neighbor_y < chunk_height && neighbor_z >= 0 && neighbor_z < world_size_in_blocks) {
+
+                    list_push_struct_LightingUpdate(&world->lighting_updates, (struct LightingUpdate){
+                                                                                  .x = neighbor_x,
+                                                                                  .y = neighbor_y,
+                                                                                  .z = neighbor_z,
+                                                                              });
+                }
+            }
+        }
+    }
+}
+
 void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block) {
     if (x < 0 || x >= world_size_in_blocks || z < 0 || z >= world_size_in_blocks || y < 0 || y >= chunk_height) {
         return;
@@ -307,33 +244,8 @@ void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8
     int32_t block_y = y % chunk_height;
     int32_t block_z = z % CHUNK_SIZE;
 
-    // If the old block was a light block then it's light needs to be removed.
-    if (world_get_block(world, x, y, z) == LIGHT_BLOCK) {
-        list_push_struct_LightEventNode(&world->light_event_queue, (struct LightEventNode){
-                                                                       .x = x,
-                                                                       .y = y,
-                                                                       .z = z,
-                                                                       .event_type = LIGHT_EVENT_TYPE_REMOVE,
-                                                                   });
-    }
-
     chunk_set_block(&world->chunks[chunk_i], block_x, block_y, block_z, block);
-    list_push_struct_LightEventNode(&world->light_event_queue, (struct LightEventNode){
-                                                                   .x = x,
-                                                                   .y = y,
-                                                                   .z = z,
-                                                                   .event_type = LIGHT_EVENT_TYPE_UPDATE,
-                                                               });
-
-    // If the old block is a light block then it's light needs to be added.
-    if (block == LIGHT_BLOCK) {
-        list_push_struct_LightEventNode(&world->light_event_queue, (struct LightEventNode){
-                                                                       .x = x,
-                                                                       .y = y,
-                                                                       .z = z,
-                                                                       .event_type = LIGHT_EVENT_TYPE_ADD,
-                                                                   });
-    }
+    world_update_lighting(world, x, y, z);
 
     if (block_x == 0 && chunk_x > 0) {
         world->chunks[CHUNK_INDEX(chunk_x - 1, chunk_z)].is_dirty = true;
@@ -361,9 +273,7 @@ void world_destroy(struct World *world) {
         chunk_destroy(&world->chunks[i]);
     }
 
-    list_destroy_struct_LightEventNode(&world->light_event_queue);
-    list_destroy_struct_LightAddNode(&world->light_add_queue);
-    list_destroy_struct_LightRemoveNode(&world->light_remove_queue);
+    list_destroy_struct_LightingUpdate(&world->lighting_updates);
 
     free(world->chunks);
 }
