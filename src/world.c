@@ -43,6 +43,10 @@ struct World world_create() {
                 size_t heightmap_i = HEIGHTMAP_INDEX(x, z);
                 int32_t heightmap_max = world.chunks[i].heightmap_max[heightmap_i];
                 int32_t sky_y = heightmap_max + 1;
+
+                // Sky above the heightmap should always be filled with sunlight.
+                memset(&world.chunks[i].lightmap[BLOCK_INDEX(x, sky_y, z)], sunlight_mask, chunk_height - sky_y);
+
                 world_light_add(&world, world_x, sky_y, world_z, sunlight_mask, sunlight_offset, LIGHT_TYPE_SUNLIGHT);
             }
         }
@@ -110,7 +114,8 @@ void world_light_remove(
     while (world->light_remove_queue.length > 0) {
         struct LightRemoveNode light_remove_node = list_dequeue_struct_LightRemoveNode(&world->light_remove_queue);
 
-        for (int32_t side_i = down; side_i >= 0; side_i--) {
+        // for (int32_t side_i = down; side_i >= 0; side_i--) {
+        for (int32_t side_i = 0; side_i < 6; side_i++) {
             int32_t neighbor_x = light_remove_node.x + directions[side_i].x;
             int32_t neighbor_y = light_remove_node.y + directions[side_i].y;
             int32_t neighbor_z = light_remove_node.z + directions[side_i].z;
@@ -141,10 +146,6 @@ void world_light_remove(
 }
 
 void world_light_update(struct World *world, int32_t x, int32_t y, int32_t z) {
-    // TODO: Building towards chunk borders above ground sometimes creates shadow-line artifacts along the border. It's
-    // fixed by initially lighting chunks from the of the chunk, rather than the top of their heightmap, but I think
-    // there's a better fix.
-
     for (int32_t iz = z - MAX_LIGHT_LEVEL; iz <= z + MAX_LIGHT_LEVEL; iz++) {
         for (int32_t ix = x - MAX_LIGHT_LEVEL; ix <= x + MAX_LIGHT_LEVEL; ix++) {
             if (ix < 0 || ix >= world_size_in_blocks || iz < 0 || iz >= world_size_in_blocks) {
