@@ -45,6 +45,7 @@ enum LightEventType {
 struct LightEventNode {
     enum LightEventType event_type;
     int32_t x;
+    int32_t y;
     int32_t z;
 };
 
