@@ -7,7 +7,7 @@
 
 #define LIGHT_BLOCK 3
 
-const size_t world_size = 4;
+const size_t world_size = 24;
 const size_t world_length = world_size * world_size;
 const size_t world_size_in_blocks = world_size * CHUNK_SIZE;
 
@@ -25,10 +25,8 @@ struct World world_create() {
         int32_t chunk_x = (i % world_size) * CHUNK_SIZE;
         int32_t chunk_z = i / world_size * CHUNK_SIZE;
         world.chunks[i] = chunk_create(chunk_x, chunk_z);
+        world_init_chunk_lighting(&world, &world.chunks[i]);
     }
-
-    // Force a lighting update at the origin to propogate sunlight through the world.
-    list_push_struct_LightingUpdate(&world.lighting_updates, (struct LightingUpdate){0, chunk_height, 0});
 
     return world;
 }
@@ -138,6 +136,35 @@ bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size
     }
 
     return false;
+}
+
+// Request the minimum number of lighting updates necessary to ensure a new chunk is properly lit.
+void world_init_chunk_lighting(struct World *world, struct Chunk *chunk) {
+    for (int32_t z = 0; z < CHUNK_SIZE; z++) {
+        int32_t world_z = z + chunk->z;
+        for (int32_t x = 0; x < CHUNK_SIZE; x++) {
+            int32_t world_x = x + chunk->x;
+            int32_t heightmap_i = HEIGHTMAP_INDEX(x, z);
+            int32_t y_max = chunk->heightmap_max[heightmap_i];
+
+            // Everything above the max height in this column should be touched by sunlight.
+            memset(&chunk->lightmap[BLOCK_INDEX(x, y_max, z)], sunlight_mask, chunk_height - y_max);
+
+            // Find and update spaces below the max height that could still be touched by sunlight
+            // (spaces with air above/below).
+            for (int32_t y = 1; y <= y_max; y++) {
+                uint8_t lower_block = chunk_get_block(chunk, x, y - 1, z);
+                uint8_t upper_block = chunk_get_block(chunk, x, y, z);
+                if (lower_block == 0 && upper_block != 0) {
+                    list_push_struct_LightingUpdate(
+                        &world->lighting_updates, (struct LightingUpdate){world_x, y - 1, world_z});
+                } else if (lower_block != 0 && upper_block == 0) {
+                    list_push_struct_LightingUpdate(
+                        &world->lighting_updates, (struct LightingUpdate){world_x, y, world_z});
+                }
+            }
+        }
+    }
 }
 
 // Based on xtreme8000's CavEX lighting algorithm.
