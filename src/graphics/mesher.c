@@ -128,8 +128,8 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
     list_reset_uint32_t(&mesher->indices);
 
     uint8_t neighbors[6];
-    uint8_t neighbor_sunlight_levels[6];
-    uint8_t neighbor_light_levels[6];
+    float neighbor_sunlight_levels[6];
+    float neighbor_light_levels[6];
 
     for (int32_t z = 0; z < CHUNK_SIZE; z++) {
         int32_t world_z = z + chunk->z;
@@ -155,11 +155,10 @@ void mesher_mesh_chunk(struct Mesher *mesher, struct World *world, struct Chunk 
                     neighbors[side_i] = world_get_block(world, neighbor_x, neighbor_y, neighbor_z);
                     uint8_t sunlight_level = world_get_light_level(
                         world, neighbor_x, neighbor_y, neighbor_z, sunlight_mask, sunlight_offset);
-                    // TODO:
-                    neighbor_sunlight_levels[side_i] = sunlight_level; // * inv_light_level_count;
+                    neighbor_sunlight_levels[side_i] = sunlight_level * inv_light_level_count;
                     uint8_t light_level =
                         world_get_light_level(world, neighbor_x, neighbor_y, neighbor_z, light_mask, light_offset);
-                    neighbor_light_levels[side_i] = light_level; // * inv_light_level_count;
+                    neighbor_light_levels[side_i] = light_level * inv_light_level_count;
                 }
 
                 for (size_t side_i = 0; side_i < 6; side_i++) {

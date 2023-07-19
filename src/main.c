@@ -22,10 +22,13 @@
 
 #define BLOCK_TEXTURE_COUNT 3
 
+const float sky_color_r = 100.0f / 255.0f;
+const float sky_color_g = 149.0f / 255.0f;
+const float sky_color_b = 237.0f / 255.0f;
+
 int main() {
     struct Window window = window_create("CBlock", 640, 480);
 
-    glClearColor(100.0f / 255.0f, 149.0f / 255.0f, 237.0f / 255.0f, 1.0f);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
@@ -59,12 +62,13 @@ int main() {
 
     int32_t view_matrix_location_3d = glGetUniformLocation(program_3d, "view_matrix");
     int32_t projection_matrix_location_3d = glGetUniformLocation(program_3d, "projection_matrix");
-    int32_t elapsed_time_location_3d = glGetUniformLocation(program_3d, "elapsed_time");
+    int32_t time_of_day_location_3d = glGetUniformLocation(program_3d, "time_of_day");
 
     int32_t projection_matrix_location_2d = glGetUniformLocation(program_2d, "projection_matrix");
 
     double last_frame_time = glfwGetTime();
     float fps_print_timer = 0.0f;
+
     float elapsed_time = 0.0f;
 
     struct MeshingInfo meshing_info = meshing_info_create(&world, texture_atlas_3d.width, texture_atlas_3d.height);
@@ -88,13 +92,15 @@ int main() {
         float delta_time = (float)(current_frame_time - last_frame_time);
         last_frame_time = current_frame_time;
 
-        elapsed_time += delta_time;
         fps_print_timer += delta_time;
 
         if (fps_print_timer > 1.0f) {
             fps_print_timer = 0.0f;
             printf("fps: %f\n", 1.0f / delta_time);
         }
+
+        elapsed_time += delta_time;
+        float time_of_day = 0.5f * (sin(elapsed_time * 0.1f) + 1.0f);
 
         camera_move(&camera, &window, &world, delta_time);
         camera_rotate(&camera, &window);
@@ -116,12 +122,13 @@ int main() {
         sprite_batch_end(&sprite_batch, texture_atlas_2d.width, texture_atlas_2d.height);
 
         // Draw:
+        glClearColor(sky_color_r * time_of_day, sky_color_g * time_of_day, sky_color_b * time_of_day, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(program_3d);
         glUniformMatrix4fv(view_matrix_location_3d, 1, GL_FALSE, (const float *)&view_matrix);
         glUniformMatrix4fv(projection_matrix_location_3d, 1, GL_FALSE, (const float *)&projection_matrix_3d);
-        glUniform1f(elapsed_time_location_3d, elapsed_time);
+        glUniform1f(time_of_day_location_3d, time_of_day);
         glBindTexture(GL_TEXTURE_2D_ARRAY, texture_atlas_3d.id);
         meshing_info_draw(&meshing_info);
 
