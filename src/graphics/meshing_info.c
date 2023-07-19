@@ -12,6 +12,8 @@ DWORD WINAPI meshing_thread_start(void *start_info) {
     while (!info->is_done) {
         WaitForSingleObject(info->world->mutex, INFINITE);
 
+        world_update_lighting(info->world);
+
         // Process meshing updates:
         for (int32_t i = 0; i < world_length; i++) {
             if (!info->world->chunks[i].is_dirty) {

@@ -44,6 +44,7 @@ struct RaycastHit {
 struct World world_create();
 struct RaycastHit world_raycast(struct World *world, vec3s start, vec3s direction, float range);
 bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size, vec3s origin);
+void world_update_lighting(struct World *world);
 void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t block);
 void world_destroy(struct World *world);
 

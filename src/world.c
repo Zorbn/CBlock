@@ -28,6 +28,10 @@ struct World world_create() {
         world.chunks[i] = chunk_create(chunk_x, chunk_z);
     }
 
+    // Force a lighting update at the origin to propogate sunlight through the world.
+    int32_t origin_sky_height = world.chunks[0].heightmap_max[0] + 1;
+    list_push_struct_LightingUpdate(&world.lighting_updates, (struct LightingUpdate){0, origin_sky_height, 0});
+
     return world;
 }
 
@@ -138,15 +142,8 @@ bool world_is_colliding_with_box(struct World *world, vec3s position, vec3s size
     return false;
 }
 
-// TODO: Add to header, call from other thread instead of main, etc.
 // Based on xtreme8000's CavEX lighting algorithm.
-void world_update_lighting(struct World *world, int32_t source_x, int32_t source_y, int32_t source_z) {
-    list_push_struct_LightingUpdate(&world->lighting_updates, (struct LightingUpdate){
-                                                                  .x = source_x,
-                                                                  .y = source_y,
-                                                                  .z = source_z,
-                                                              });
-
+void world_update_lighting(struct World *world) {
     while (world->lighting_updates.length > 0) {
         struct LightingUpdate current = list_pop_struct_LightingUpdate(&world->lighting_updates);
 
@@ -235,7 +232,7 @@ void world_set_block(struct World *world, int32_t x, int32_t y, int32_t z, uint8
     int32_t block_z = z % CHUNK_SIZE;
 
     chunk_set_block(&world->chunks[chunk_i], block_x, block_y, block_z, block);
-    world_update_lighting(world, x, y, z);
+    list_push_struct_LightingUpdate(&world->lighting_updates, (struct LightingUpdate){x, y, z});
 
     if (block_x == 0 && chunk_x > 0) {
         world->chunks[CHUNK_INDEX(chunk_x - 1, chunk_z)].is_dirty = true;
