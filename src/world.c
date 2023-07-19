@@ -5,7 +5,6 @@
 #include <inttypes.h>
 #include <math.h>
 
-// TODO: block "3" is currently a stand-in for all lights.
 #define LIGHT_BLOCK 3
 
 const size_t world_size = 4;
@@ -29,8 +28,7 @@ struct World world_create() {
     }
 
     // Force a lighting update at the origin to propogate sunlight through the world.
-    int32_t origin_sky_height = world.chunks[0].heightmap_max[0] + 1;
-    list_push_struct_LightingUpdate(&world.lighting_updates, (struct LightingUpdate){0, origin_sky_height, 0});
+    list_push_struct_LightingUpdate(&world.lighting_updates, (struct LightingUpdate){0, chunk_height, 0});
 
     return world;
 }
@@ -192,7 +190,7 @@ void world_update_lighting(struct World *world) {
             world_set_light_level(world, current.x, current.y, current.z, new_sunlight, sunlight_mask, sunlight_offset);
             world_set_light_level(world, current.x, current.y, current.z, new_light, light_mask, light_offset);
 
-            // TODO: If smooth lighting gets added, neighboring chunks need to be updated if this lighting update is on
+            // NOTE: If smooth lighting gets added, neighboring chunks need to be updated if this lighting update is on
             // a chunk boundary. (ie: the same as when setting a block).
             world->chunks[chunk_i].is_dirty = true;
 

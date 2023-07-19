@@ -9,8 +9,6 @@
 #include <inttypes.h>
 #include <string.h>
 
-// TODO: Consider removing unused list functions.
-
 #define LIST_DEFINE(type)                                                                                              \
     struct List_##type {                                                                                               \
         type *data;                                                                                                    \
@@ -50,18 +48,6 @@
                                                                                                                        \
         --list->length;                                                                                                \
         return list->data[list->length];                                                                               \
-    }                                                                                                                  \
-                                                                                                                       \
-    inline type list_dequeue_##type(struct List_##type *list) {                                                        \
-        assert(list->length > 0);                                                                                      \
-                                                                                                                       \
-        type value = list->data[0];                                                                                    \
-                                                                                                                       \
-        /* Shift all array elements down by one index, overwriting the first element. */                               \
-        memmove(list->data, &list->data[1], list->length * sizeof(type));                                              \
-                                                                                                                       \
-        --list->length;                                                                                                \
-        return value;                                                                                                  \
     }                                                                                                                  \
                                                                                                                        \
     /* Replace the ith element with the last element. Fast, but changes the list's order. */                           \
