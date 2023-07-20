@@ -7,7 +7,7 @@
 
 #define LIGHT_BLOCK 3
 
-const size_t world_size = 24;
+const size_t world_size = 4;
 const size_t world_length = world_size * world_size;
 const size_t world_size_in_blocks = world_size * CHUNK_SIZE;
 
@@ -146,13 +146,14 @@ void world_init_chunk_lighting(struct World *world, struct Chunk *chunk) {
             int32_t world_x = x + chunk->x;
             int32_t heightmap_i = HEIGHTMAP_INDEX(x, z);
             int32_t sky_y = chunk->heightmap_max[heightmap_i] + 1;
+            int32_t min_y = chunk->heightmap_min[heightmap_i];
 
             // Everything above the max height in this column should be touched by sunlight.
             memset(&chunk->lightmap[BLOCK_INDEX(x, sky_y, z)], sunlight_mask, chunk_height - sky_y);
 
             // Find and update spaces below the max height that could still be touched by sunlight
             // (spaces with air above/below).
-            for (int32_t y = 1; y < sky_y; y++) {
+            for (int32_t y = GLM_MAX(min_y, 1); y < sky_y; y++) {
                 uint8_t lower_block = chunk_get_block(chunk, x, y - 1, z);
                 uint8_t upper_block = chunk_get_block(chunk, x, y, z);
                 if (lower_block == 0 && upper_block != 0) {
