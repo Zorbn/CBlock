@@ -1,6 +1,6 @@
 #include "camera.h"
 
-struct Camera camera_create() {
+struct Camera camera_create(void) {
     return (struct Camera){
         .position = {{0.0f, 0.0f, 0.0f}},
         .rotation_x = 0.0f,

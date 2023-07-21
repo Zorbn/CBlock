@@ -50,8 +50,6 @@ struct Chunk chunk_create(int32_t x, int32_t z) {
     return chunk;
 }
 
-#include <stdio.h>
-
 void chunk_set_block(struct Chunk *chunk, int32_t x, int32_t y, int32_t z, uint8_t block) {
     size_t i = BLOCK_INDEX(x, y, z);
     chunk->blocks[i] = block;

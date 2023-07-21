@@ -1,6 +1,6 @@
 #include "input.h"
 
-struct Input input_create() {
+struct Input input_create(void) {
     return (struct Input){
         .held_buttons = list_create_int32_t(16),
         .pressed_buttons = list_create_int32_t(16),

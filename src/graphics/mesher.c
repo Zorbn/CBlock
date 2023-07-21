@@ -113,7 +113,7 @@ const float cube_shades[6] = {
     0.875f, // Down
 };
 
-struct Mesher mesher_create() {
+struct Mesher mesher_create(void) {
     return (struct Mesher){
         .vertices = list_create_float(4096),
         .indices = list_create_uint32_t(4096),
