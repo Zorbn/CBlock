@@ -77,6 +77,25 @@ inline void world_set_light_level(struct World *world, int32_t x, int32_t y, int
     int32_t block_z = z % CHUNK_SIZE;
 
     chunk_set_light_level(&world->chunks[chunk_i], block_x, block_y, block_z, light_level, mask, offset);
+
+    world->chunks[chunk_i].is_dirty = true;
+
+    // TODO: Should this still be inline?
+    if (block_x == 0 && chunk_x > 0) {
+        world->chunks[CHUNK_INDEX(chunk_x - 1, chunk_z)].is_dirty = true;
+    }
+
+    if (block_x == CHUNK_SIZE - 1 && chunk_x < world_size - 1) {
+        world->chunks[CHUNK_INDEX(chunk_x + 1, chunk_z)].is_dirty = true;
+    }
+
+    if (block_z == 0 && chunk_z > 0) {
+        world->chunks[CHUNK_INDEX(chunk_x, chunk_z - 1)].is_dirty = true;
+    }
+
+    if (block_z == CHUNK_SIZE - 1 && chunk_z < world_size - 1) {
+        world->chunks[CHUNK_INDEX(chunk_x, chunk_z + 1)].is_dirty = true;
+    }
 }
 
 inline uint8_t world_get_light_level(struct World *world, int32_t x, int32_t y, int32_t z, uint8_t mask, uint8_t offset) {

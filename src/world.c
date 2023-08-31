@@ -215,12 +215,9 @@ void world_update_lighting(struct World *world) {
 
         bool is_light_different = (old_light != new_light) || (old_sunlight != new_sunlight);
         if (is_light_different) {
+            // TODO: This should be combined into one call.
             world_set_light_level(world, current.x, current.y, current.z, new_sunlight, sunlight_mask, sunlight_offset);
             world_set_light_level(world, current.x, current.y, current.z, new_light, light_mask, light_offset);
-
-            // NOTE: If smooth lighting gets added, neighboring chunks need to be updated if this lighting update is on
-            // a chunk boundary. (ie: the same as when setting a block).
-            world->chunks[chunk_i].is_dirty = true;
 
             for (size_t side_i = 0; side_i < 6; side_i++) {
                 int32_t neighbor_x = current.x + directions[side_i].x;
